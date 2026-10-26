@@ -570,15 +570,22 @@ const MATERIALS = ['Cotton','Organic cotton','Oxford cloth','Denim','Chambray','
 const normMaterial = m => m==='Merino wool' ? 'Wool' : m;const CAT_IDS = CATS.map(c=>c[0]);
 const catLabel = id => (CATS.find(c=>c[0]===id)||CATS[CATS.length-1])[1];
 const SEASONS = ['Spring','Summer','Fall','Winter'];
+// The color names a menswear shopper would use, each with its family. Matched by CIEDE2000, so neutrals stay neutral.
 const NAMED = [
-  ['Black','#141414','black'],['Charcoal','#3A3F45','grey'],['Grey','#8C8F94','grey'],['Light grey','#C9CBCE','grey'],
-  ['White','#F6F6F3','white'],['Ivory','#EFE8D6','white'],['Beige','#D8C4A2','brown'],['Tan','#C29B6C','brown'],
-  ['Camel','#AE7F52','brown'],['Brown','#6A4528','brown'],['Navy','#1E2843','blue'],['Blue','#2E5CA8','blue'],
-  ['Denim','#506D8D','blue'],['Light blue','#A3C4E4','blue'],['Teal','#1E7576','green'],['Green','#3A7A3C','green'],
-  ['Olive','#6A6A30','green'],['Sage','#9DAE8A','green'],['Mint','#B7E2C8','green'],['Yellow','#F0CF2A','yellow'],
-  ['Mustard','#C49F2B','yellow'],['Orange','#E07A26','orange'],['Rust','#A5472B','orange'],['Red','#C22B2D','red'],
-  ['Burgundy','#6B1E2C','red'],['Pink','#F1A9C0','pink'],['Hot pink','#D63580','pink'],['Blush','#E6C3BE','pink'],
-  ['Purple','#6B3F8E','purple'],['Lavender','#BBA8DA','purple'],['Gold','#C7A34C','yellow'],['Silver','#BEC2C7','grey']
+  ['Black','#141414','black'],['Jet black','#0A0A0B','black'],['Off-black','#232325','black'],
+  ['Charcoal','#3A3F45','grey'],['Graphite','#4A4C50','grey'],['Slate','#5E6872','grey'],['Grey','#8C8F94','grey'],['Heather grey','#9C9EA2','grey'],['Ash','#B3B4B1','grey'],['Light grey','#C9CBCE','grey'],['Silver','#BEC2C7','grey'],['Steel','#7A8590','grey'],
+  ['White','#F6F6F3','white'],['Optic white','#FBFBFB','white'],['Off-white','#EEEBE2','white'],['Ivory','#EFE8D6','white'],['Cream','#E9E0C9','white'],['Ecru','#E2D9C2','white'],['Bone','#E3DAC6','white'],
+  ['Oatmeal','#CDBFA6','brown'],['Stone','#B7AE9C','brown'],['Sand','#CDBA94','brown'],['Beige','#D8C4A2','brown'],['Khaki','#BBA77C','brown'],['Taupe','#8B7D6B','brown'],['Tan','#C29B6C','brown'],['Camel','#AE7F52','brown'],
+  ['Cognac','#9A5B2E','brown'],['Tobacco','#6A4A2F','brown'],['Brown','#6A4528','brown'],['Chocolate','#3F2A1E','brown'],['Espresso','#2E211A','brown'],['Mocha','#7B5E4A','brown'],
+  ['Navy','#1E2843','blue'],['Midnight','#151C2E','blue'],['Indigo','#2D3A63','blue'],['Cobalt','#1F4FA0','blue'],['Royal blue','#2445A8','blue'],['Blue','#2E5CA8','blue'],['Steel blue','#4F6E8E','blue'],
+  ['Dark wash','#253A5C','blue'],['Denim','#506D8D','blue'],['Medium wash','#4F6E98','blue'],['Light wash','#7E9BBE','blue'],['Chambray','#8FA9CB','blue'],['Sky blue','#8EB8E3','blue'],['Light blue','#A3C4E4','blue'],['Powder blue','#BBD2E8','blue'],
+  ['Teal','#1E7576','green'],['Forest green','#2A4632','green'],['Hunter green','#2E4A36','green'],['Green','#3A7A3C','green'],['Kelly green','#2E8B47','green'],['Olive','#6A6A30','green'],['Army green','#4B5232','green'],
+  ['Moss','#6B6E4A','green'],['Sage','#9DAE8A','green'],['Mint','#B7E2C8','green'],['Lime','#A6C23A','green'],
+  ['Yellow','#F0CF2A','yellow'],['Butter','#EFE0A0','yellow'],['Mustard','#C49F2B','yellow'],['Ochre','#B8862F','yellow'],['Gold','#C7A34C','yellow'],
+  ['Orange','#E07A26','orange'],['Burnt orange','#B9561F','orange'],['Rust','#A5472B','orange'],['Terracotta','#B5603F','orange'],['Peach','#F2B38F','orange'],['Coral','#E07B67','orange'],
+  ['Red','#C22B2D','red'],['Cherry','#9E1B2A','red'],['Brick','#8E3B2F','red'],['Burgundy','#6B1E2C','red'],['Wine','#5B1F2C','red'],['Maroon','#5A1F27','red'],['Oxblood','#4E1C22','red'],
+  ['Pink','#F1A9C0','pink'],['Hot pink','#D63580','pink'],['Blush','#E6C3BE','pink'],['Dusty rose','#C48F8F','pink'],['Salmon','#E9967A','pink'],
+  ['Purple','#6B3F8E','purple'],['Plum','#5B2C4F','purple'],['Lavender','#BBA8DA','purple'],['Lilac','#C8A2C8','purple']
 ];
 const FAMS = {black:'#141414',grey:'#8C8F94',white:'#F6F6F3',brown:'#8A5E3B',blue:'#2E5CA8',green:'#3A7A3C',yellow:'#E3BE2D',orange:'#E07A26',red:'#C22B2D',pink:'#F1A9C0',purple:'#6B3F8E'};
 
@@ -621,10 +628,26 @@ function rgb2lab(r,g,b,out,o){
 const hex2rgb = h => [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
 const rgb2hex = (r,g,b) => '#'+[r,g,b].map(v=>pad2(Math.round(v).toString(16))).join('').toUpperCase();
 const NAMED_LAB = NAMED.map(([,h])=>{ const o=new Float32Array(3); const [r,g,b]=hex2rgb(h); rgb2lab(r,g,b,o,0); return o; });
+// CIEDE2000: the standard color-difference formula, matching how people judge "same color" far better than plain distance.
+function deltaE00(a,b,kL=1){
+  const [L1,a1,b1]=a,[L2,a2,b2]=b, rad=Math.PI/180, C1=Math.hypot(a1,b1), C2=Math.hypot(a2,b2), Cb=(C1+C2)/2;
+  const G=0.5*(1-Math.sqrt(Cb**7/(Cb**7+25**7))), a1p=(1+G)*a1, a2p=(1+G)*a2, C1p=Math.hypot(a1p,b1), C2p=Math.hypot(a2p,b2);
+  const h=(x,y)=>{ if(!x&&!y) return 0; const v=Math.atan2(y,x)/rad; return v<0?v+360:v; }, h1=h(a1p,b1), h2=h(a2p,b2);
+  const dL=L2-L1, dC=C2p-C1p; let dh=0; if(C1p*C2p){ dh=h2-h1; if(dh>180) dh-=360; else if(dh<-180) dh+=360; }
+  const dH=2*Math.sqrt(C1p*C2p)*Math.sin(dh*rad/2), Lb=(L1+L2)/2, Cbp=(C1p+C2p)/2;
+  let hb=h1+h2; if(C1p*C2p){ hb = Math.abs(h1-h2)>180 ? (h1+h2<360?(h1+h2+360)/2:(h1+h2-360)/2) : (h1+h2)/2; }
+  const T=1-0.17*Math.cos((hb-30)*rad)+0.24*Math.cos(2*hb*rad)+0.32*Math.cos((3*hb+6)*rad)-0.2*Math.cos((4*hb-63)*rad);
+  const SL=1+0.015*(Lb-50)**2/Math.sqrt(20+(Lb-50)**2), SC=1+0.045*Cbp, SH=1+0.015*Cbp*T;
+  const RT=-2*Math.sqrt(Cbp**7/(Cbp**7+25**7))*Math.sin(60*Math.exp(-(((hb-275)/25)**2))*rad);
+  return Math.sqrt((dL/(SL*kL))**2+(dC/SC)**2+(dH/SH)**2+RT*(dC/SC)*(dH/SH));
+}
+function lab2rgb(L,A,B){ let y=(L+16)/116, x=A/500+y, z=y-B/200; const f=t=>t**3>0.008856?t**3:(t-16/116)/7.787; x=f(x)*0.95047; y=f(y); z=f(z)*1.08883;
+  let r=x*3.2406+y*-1.5372+z*-0.4986, g=x*-0.9689+y*1.8758+z*0.0415, bl=x*0.0557+y*-0.2040+z*1.0570;
+  const g2=c=>Math.round(255*Math.min(1,Math.max(0,c>0.0031308?1.055*Math.pow(c,1/2.4)-0.055:12.92*c))); return [g2(r),g2(g),g2(bl)]; }
 function nameColor(hex){
   const o=new Float32Array(3); const [r,g,b]=hex2rgb(hex); rgb2lab(r,g,b,o,0);
-  let best=0,bd=1e9; NAMED_LAB.forEach((l,i)=>{ const d=(l[0]-o[0])**2+(l[1]-o[1])**2+(l[2]-o[2])**2; if(d<bd){bd=d;best=i;} });
-  return {name:NAMED[best][0], fam:NAMED[best][2]};
+  let best=0,bd=1e9; NAMED_LAB.forEach((l,i)=>{ const d=deltaE00(l,o); if(d<bd){bd=d;best=i;} });
+  return {name:NAMED[best][0], fam:NAMED[best][2], dE:bd};
 }
 function kmeans(pts,m,k,iters){
   k=Math.min(k,m); const C=new Float32Array(k*3); const assign=new Int32Array(m);
@@ -647,13 +670,21 @@ function extractColors(data,alpha,n){
   const step=Math.max(1,Math.floor(idx.length/16000)); const m=Math.floor(idx.length/step);
   const pts=new Float32Array(m*3), rgb=new Float32Array(m*3);
   for(let j=0;j<m;j++){ const i=idx[j*step]*4; rgb2lab(data[i],data[i+1],data[i+2],pts,j*3); rgb[j*3]=data[i];rgb[j*3+1]=data[i+1];rgb[j*3+2]=data[i+2]; }
-  const {assign,k}=kmeans(pts,m,5,10);
-  const acc=[...Array(k)].map(()=>({n:0,r:0,g:0,b:0}));
-  for(let j=0;j<m;j++){ const a=acc[assign[j]]; a.n++; a.r+=rgb[j*3]; a.g+=rgb[j*3+1]; a.b+=rgb[j*3+2]; }
+  const {assign,k}=kmeans(pts,m,6,12);
+  // Each group's true color comes from its mid-tones: shadows (folds) and highlights (shine) are left out, then the median is taken.
+  const groups=[...Array(k)].map(()=>[]); for(let j=0;j<m;j++) groups[assign[j]].push(j);
+  let cl=groups.filter(g=>g.length).map(g=>{ const Ls=g.map(j=>pts[j*3]).sort((a,b)=>a-b), lo=Ls[Math.floor(Ls.length*.2)], hi=Ls[Math.floor(Ls.length*.85)];
+    const mid=g.filter(j=>pts[j*3]>=lo&&pts[j*3]<=hi), use=mid.length>=3?mid:g, med=(arr)=>{ const s=arr.slice().sort((a,b)=>a-b); return s[Math.floor(s.length/2)]; };
+    const lab=[med(use.map(j=>pts[j*3])),med(use.map(j=>pts[j*3+1])),med(use.map(j=>pts[j*3+2]))]; return {lab,n:g.length}; });
+  // Shades of one color (the same fabric in light and shadow) merge into one.
+  cl.sort((a,b)=>b.n-a.n);
+  // light and shadow change brightness far more than hue, so brightness counts for little here (but black vs white still never merge)
+  for(let i=0;i<cl.length;i++) for(let j=cl.length-1;j>i;j--){ const a=cl[i].lab, b=cl[j].lab;
+    if(deltaE00(a,b)<9 || (deltaE00(a,b,4)<7 && Math.abs(a[0]-b[0])<32)){ cl[i].n+=cl[j].n; cl.splice(j,1); } }
   const byName={};
-  acc.filter(a=>a.n).forEach(a=>{ const hex=rgb2hex(a.r/a.n,a.g/a.n,a.b/a.n); const nm=nameColor(hex); const e=byName[nm.name];
-    if(e){ if(a.n>e.n){e.hex=hex;} e.n+=a.n; } else byName[nm.name]={hex,name:nm.name,fam:nm.fam,n:a.n}; });
-  return Object.values(byName).sort((a,b)=>b.n-a.n).map(c=>({hex:c.hex,name:c.name,fam:c.fam,pct:Math.round(c.n/m*100)})).filter((c,i)=>i===0||c.pct>=7).slice(0,4);
+  for(const c of cl){ const hex=rgb2hex(...lab2rgb(...c.lab)); const nm=nameColor(hex); const e=byName[nm.name];
+    if(e) e.n+=c.n; else byName[nm.name]={hex,name:nm.name,fam:nm.fam,n:c.n}; }
+  return Object.values(byName).sort((a,b)=>b.n-a.n).map(c=>({hex:c.hex,name:c.name,fam:c.fam,pct:Math.round(c.n/m*100)})).filter((c,i)=>i===0||c.pct>=6).slice(0,4);
 }
 
 /* ---------- Example pieces (shown only while the closet is empty) ---------- */
