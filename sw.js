@@ -1,6 +1,7 @@
 // Offline support: the app shell is cached on install; Google Fonts are cached as they load.
 // build-app.py stamps VERSION from the app's contents, so phones pick up each rebuild.
-const VERSION = 'dixon-closet-0cda5c80fa';
+const VERSION = 'dixon-closet-4d9c2c53ef';
+const MODELS = 'dixon-models';
 const SHELL = [
   './', 'index.html', 'app-extras.js', 'app-sync.js', 'sync-config.js', 'manifest.webmanifest', 'vendor/anthropic.mjs', 'vendor/supabase.mjs',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'
@@ -13,13 +14,20 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
-    .then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k))))
+    .then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== MODELS).map(k => caches.delete(k)))) // downloaded models outlive app updates
     .then(() => self.clients.claim()));
 });
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.hostname === 'api.anthropic.com') return;
+
+  // On-device recognition and label reading: the pinned runtime files never change, so once downloaded they're kept
+  // (with the models, which the page stores itself) and work offline.
+  if (url.hostname === 'cdn.jsdelivr.net' && /\/npm\/(onnxruntime-web|tesseract\.js(-core)?|@tesseract\.js-data)@/.test(url.pathname)) {
+    e.respondWith(caches.open(MODELS).then(async c => (await c.match(e.request)) || fetch(e.request).then(r => { if (r.ok) c.put(e.request, r.clone()); return r; })));
+    return;
+  }
 
   if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
     e.respondWith(caches.open(VERSION).then(async c => {
