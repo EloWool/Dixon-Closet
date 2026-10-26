@@ -425,6 +425,7 @@ a.plink{color:var(--brand-text);font-weight:700;overflow-wrap:anywhere}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(24px + env(safe-area-inset-bottom,0px));z-index:80;color:var(--ink);padding:12px 20px;border-radius:999px;font:700 14px var(--f-display);text-transform:uppercase;letter-spacing:.08em;max-width:calc(100% - 32px);text-align:center}
 @media (max-width:759px){.toast{bottom:calc(96px + env(safe-area-inset-bottom,0px))}}
 .shoe-fields:not([hidden]){display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px 14px}
+.detail-tile{border:0;padding:0;width:100%;cursor:pointer;color:inherit;font:inherit}.detail-tile:disabled{cursor:default}
 .stepper{display:flex;gap:6px;align-items:center}.stepper input{flex:1;min-width:0;text-align:center}.stepper .btn{min-width:42px;padding:0 10px;font-size:18px}
 .quick-colors{display:flex;flex-wrap:wrap;gap:6px;width:100%;margin-top:8px}
 .quick-colors .qc{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);padding:0;cursor:pointer}.quick-colors .qc:hover{transform:scale(1.1)}
@@ -1175,7 +1176,8 @@ function showItem(id){
     const cpw = Number(it.price)>0 && it.wears ? money((it.price/it.wears).toFixed(2)) : '—';
     const rows=[['Model',it.reference],['Brand',it.brand],['Style no.',it.styleNumber],['Size',it.size],['Fit',it.fit],['Style',it.style],...SHOE_FIELDS.map(([k,l])=>[l,isShoeItem(it)?it[k]:'']),['Pattern',it.pattern&&it.pattern!=='Solid'?it.pattern:''],['Material',it.materialType],['Fabric',it.material],['Care',it.care],['Colors',(it.colors||[]).map(c=>c.name).join(', ')],['Seasons',(it.seasons||[]).join(', ')],['Paid',it.price!=null&&it.price!==''?money(it.price):''],['Last worn',fmtDate(it.lastWorn)]].filter(r=>r[1]);
     $('#overlay .sheet').innerHTML = head('Piece')+`<div class="sheet-body"><div class="detail">
-      <div class="tile${it.keepBg?' full':''}"><img src="${esc(Store.imgSrc(it))}" alt="${esc(it.name||'')}"></div>
+      ${(()=>{ const photo=!S.iconView||S.detailPhoto===it.id, real=Store.imgSrc(it), hasPhoto=real&&!it.drawn; // the same icon as the closet grid; tap to flip to the photo
+        return `<button type="button" class="tile detail-tile${photo?(it.keepBg?' full':''):' icon'}" data-act="detail-flip" data-id="${esc(it.id)}" aria-label="${photo?'Show the icon':'Show the photo'}"${S.iconView&&hasPhoto?'':' disabled'}><img src="${esc(photo?real:pieceImg(it))}" alt="${esc(it.name||'')}"></button>${S.iconView&&hasPhoto?`<p class="small muted" style="margin:6px 0 0;text-align:center">${photo?'Photo · tap for the icon':'Tap to see the photo'}</p>`:''}`; })()}
       <div><div class="tagcard"><div class="cat">${esc([catLabel(it.category),it.subcategory].filter(Boolean).join(' · '))}</div><h3>${esc(it.name||'Untitled piece')}</h3>
         <div class="dots" style="margin-top:8px">${(it.colors||[]).map(c=>`<i style="background:${hexOK(c.hex)};width:16px;height:16px"></i>`).join('')}</div>
         <dl class="specs">${rows.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
@@ -2358,8 +2360,10 @@ const SHAPES = {
   chinos:{f:[SH_PANT],s:[PWB,PLOOPS,'M100 34L100 68','M62 36L76 60M138 36L124 60','M78 70L74 186M122 70L126 186'],st:['M105 34L105 62','M120 40L132 40'],hw:[[100,28,2.6]]},
   cargo:{f:[SH_PANT],s:[PWB,PLOOPS,'M100 34L100 68','M62 36L74 56M138 36L126 56','M48 96h24v32h-24ZM48 96h24v8h-24ZM128 96h24v32h-24ZM128 96h24v8h-24Z','M56 150L68 156M144 150L132 156'],
     st:['M50 107h20M130 107h20','M105 34L105 62'],hw:[[100,28,2.6],[60,100,1.5],[140,100,1.5]]},
-  workpant:{f:[SH_PANT],s:[PWB,PLOOPS,'M100 34L100 68','M62 36L76 56M138 36L124 56','M55 114h36v36h-36ZM109 114h36v36h-36Z','M131 62h13v32h-13Z','M144 52l5 1 1 18-5-1Z'],
-    st:['M57 117h32M57 147h32M111 117h32M111 147h32','M105 34L105 62','M133 66h9'],hw:[[100,28,2.8]]},
+  // Double knee: a second layer of fabric across the whole front of each leg, mid-thigh to below the knee, double-stitched at top and bottom.
+  workpant:{f:[SH_PANT],pn:['M20 104L97 104L97 160L20 160ZM103 104L180 104L180 160L103 160Z'],
+    s:[PWB,PLOOPS,'M100 34L100 68','M62 36L76 56M138 36L124 56','M20 104L97 104M103 104L180 104M20 160L97 160M103 160L180 160','M131 62h13v30h-13Z','M144 52l5 1 1 18-5-1Z'],
+    st:['M20 108L97 108M103 108L180 108M20 112L97 112M103 112L180 112','M20 156L97 156M103 156L180 156','M105 34L105 62','M133 66h9'],hw:[[100,28,2.8],[60,124,1.4],[140,124,1.4]]},
   cords:{f:[SH_PANT],s:[PWB,PLOOPS,'M100 34L100 68','M62 36L76 60M138 36L124 60'],st:['M105 34L105 62'],hw:[[100,28,2.6]]},
   trousers:{f:[SH_PANT],s:[PWB,'M66 22L66 34M134 22L134 34','M100 34L100 66','M100 26L114 26','M64 36L74 58M136 36L126 58','M82 34L84 54M118 34L116 54','M76 58L72 186M124 58L128 186'],st:['M122 44L132 44'],hw:[[112,28,2]]},
   joggers:{f:['M58 22L142 22L146 170L114 178L100 74L86 178L54 170Z'],s:['M58 34L142 34','M60 26L140 26M60 30L140 30','M96 34Q92 46 89 56M104 34Q108 46 111 56','M62 40L72 70M138 40L128 70','M54 160L86 166M114 166L146 160'],
@@ -2417,7 +2421,11 @@ function sleeveOf(it){
 }
 const LONG_BODIES=new Set([SH_LONG,SH_JKT]);
 function shapeOf(cat,sub,it){ const key=shapeKey(cat,sub), sh=SHAPES[key];
-  if(cat==='bottoms' && sh.f[0]===SH_PANT){ const pf=PANT_FIT[pantFit(it)]; return {...sh,f:[pf]}; }
+  if(cat==='bottoms' && sh.f[0]===SH_PANT){ const pf=PANT_FIT[pantFit(it)];
+    // work pants get the double-knee layer only when they actually are double knee
+    if(key==='workpant' && !/double.?knee|\bb01\b|dbl knee/i.test([it?.name,it?.desc,it?.reference,it?.style,...(it?.tags||[])].filter(Boolean).join(' ')))
+      return {...sh,f:[pf],pn:null,s:sh.s.filter(d=>!d.startsWith('M20 104')),st:sh.st.filter(d=>!/^M20 1(08|56)/.test(d)),hw:sh.hw.slice(0,1)};
+    return {...sh,f:[pf]}; }
   if(cat==='tops' || cat==='active'){ const sl=sleeveOf(it);
     if(sl==='short' && LONG_BODIES.has(sh.f[0])) return {...sh,f:[SH_TEE,...sh.f.slice(1)],s:sh.s.filter(d=>d!==CUFFS)};
     if(sl==='long' && sh.f[0]===SH_TEE) return {...sh,f:[SH_LONG,...sh.f.slice(1)],s:[...sh.s,CUFFS]};
@@ -2433,6 +2441,8 @@ function shapeDetails(x,cat,N,sub,color,it){
   const sh=shapeOf(cat,sub,it);
   x.save(); x.scale(N/200,N/200);
   if(sh.dk){ x.fillStyle='rgba(0,0,0,.28)'; for(const d of sh.dk) x.fill(path2d(d)); }
+  if(sh.pn){ for(const d of sh.pn){ const p=path2d(d); x.fillStyle='rgba(0,0,0,.16)'; x.fill(p); // the extra layer sits a touch darker, lit along its top edge
+    const g=x.createLinearGradient(0,104,0,160); g.addColorStop(0,'rgba(255,255,255,.14)'); g.addColorStop(.25,'rgba(255,255,255,0)'); g.addColorStop(1,'rgba(0,0,0,.12)'); x.fillStyle=g; x.fill(p); } }
   x.strokeStyle=color; x.lineWidth=3.2; x.lineCap='round'; x.lineJoin='round';
   for(const d of sh.s) x.stroke(path2d(d));
   // Topstitching: gold on denim (like real jeans), tone-on-tone otherwise; then metal buttons and rivets; then a frayed hem.
@@ -3058,17 +3068,20 @@ function openBuilder({ids=[],name='',editingId=null}={}){
   };
   B.draw=draw; openSheet('',{kind:'builder',dismissable:false,refresh:draw}); draw();
 }
+// A shuffled look is built like getting dressed: maybe a base layer, one shirt or tee, maybe a mid layer, maybe a jacket,
+// one bottom, one pair of shoes, maybe an accessory. Every piece must pair with every other (no two long sleeves, no two
+// pieces from the same layer, no two pants); colors that work together are favored.
 function shuffleIds(){
-  const pick=a=>a[Math.floor(Math.random()*a.length)];
-  const by=c=>S.items.filter(i=>i.category===c);
-  const ids=[], tops=by('tops').filter(i=>!isLayer(i)), layers=by('tops').filter(isLayer), bottoms=by('bottoms');
-  if(tops.length) ids.push(pick(tops).id);
-  if(layers.length && (Math.random()<0.5 || !tops.length)) ids.push(pick(layers).id);
-  if(bottoms.length) ids.push(pick(bottoms).id);
-  if(by('shoes').length) ids.push(pick(by('shoes')).id);
-  if(by('outerwear').length && Math.random()<0.55) ids.push(pick(by('outerwear')).id);
-  const acc=by('accessories'); if(acc.length && Math.random()<0.6) ids.push(pick(acc).id);
-  return ids;
+  const pick=a=>a[Math.floor(Math.random()*a.length)], chosen=[];
+  const fits=i=>chosen.every(c=>pairOK(i,c)) && (!chosen.length || colorsGo(i,{colors:chosen.flatMap(c=>c.colors||[])}) || Math.random()<0.3);
+  const add=(pool,chance=1)=>{ if(Math.random()>chance) return; const ok=pool.filter(i=>!chosen.includes(i) && fits(i)); if(ok.length) chosen.push(pick(ok)); };
+  const lay=l=>S.items.filter(i=>layerOf(i)===l && i.category!=='suits'), by=c=>S.items.filter(i=>i.category===c);
+  add(lay(1)); if(!chosen.length) add(lay(2));            // the main top: a shirt or tee (or a sweater if that's all there is)
+  add(lay(0),0.25);                                        // a base layer under it, now and then
+  if(chosen.some(i=>layerOf(i)===1)) add(lay(2),0.45);    // a sweater, hoodie or flannel over it
+  add(lay(3),0.55);                                        // a jacket or coat
+  add(by('bottoms')); add(by('shoes')); add(by('accessories'),0.6);
+  return chosen.map(i=>i.id);
 }
 function showOutfit(id){
   const draw=()=>{
@@ -3227,7 +3240,7 @@ const ACT = {
   'clear-filters':()=>{ S.cat='all'; S.sub='all'; S.mat='all'; S.fam='all'; S.q=''; render(); },
   'open-item':t=>{ const id=t.dataset.id;
     if(S.selecting && t.classList.contains('card')){ S.sel.has(id)?S.sel.delete(id):S.sel.add(id); render(); return; }
-    showItem(id); },
+    S.detailPhoto=null; showItem(id); },
   'share-outfit':t=>{ const o=findOutfit(t.dataset.id); if(o) shareLook(t,o.name,(o.itemIds||[]).map(findItem).filter(Boolean)); },
   'copy-outfit':t=>{ const o=findOutfit(t.dataset.id); if(o) copyLook(o.name,(o.itemIds||[]).map(findItem).filter(Boolean)); },
   'share-item':t=>{ const it=findItem(t.dataset.id); if(it) shareLook(t,it.name,[it]); },
@@ -3280,6 +3293,7 @@ const ACT = {
   'photo-store':()=>{ if(!Add.swapBack) return; Add.ownCut=Add.cut||'none'; Add.cut=Add.swapBack; Add.swapBack=null; renderDetailsStep(); },
   'lookup-back':()=>{ const q=Add.hint||''; Add={ step:'photo', editingId:null, data:{category:'tops',colors:[],seasons:[],tags:[]}, cut:null, touched:{} }; renderPhotoStep(); $('#lookup-q').value=q; },
   'ed-auto':()=>{ const r=$('#ed-tol'); if(!r||!Ed) return; r.value=Ed.autoT; r.dispatchEvent(new Event('input',{bubbles:true})); },
+  'detail-flip':t=>{ S.detailPhoto = S.detailPhoto===t.dataset.id ? null : t.dataset.id; refreshOpenSheet(); },
   'range-step':t=>{ const r=$('#'+t.dataset.for); if(!r||r.disabled) return; r.value=Math.min(+r.max,Math.max(+r.min,(+r.value)+Number(t.dataset.d))); r.dispatchEvent(new Event('input',{bubbles:true})); },
   'wears-step':t=>{ const i=$('#f-wears'); const n=Math.max(0,(Number(i.value)||0)+Number(t.dataset.d)); i.value=n;
     if(Number(t.dataset.d)>0 && !$('#f-lastWorn').value) $('#f-lastWorn').value=today(); },
