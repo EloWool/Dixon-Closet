@@ -1,0 +1,14 @@
+# Dixon Closet is plain static files: nothing to build, publish this folder as-is.
+[build]
+  publish = "."
+  command = ""
+
+# Always fetch the newest app shell so phones pick up updates.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
