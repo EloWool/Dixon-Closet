@@ -430,6 +430,7 @@ a.plink{color:var(--brand-text);font-weight:700;overflow-wrap:anywhere}
 .quick-colors{display:flex;flex-wrap:wrap;gap:6px;width:100%;margin-top:8px}
 .quick-colors .qc{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);padding:0;cursor:pointer}.quick-colors .qc:hover{transform:scale(1.1)}
 .paste-list textarea{background:var(--field);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:inherit;font:inherit;font-size:14px}
+.legend .pct{font:500 11px var(--f-mono);color:var(--muted);margin-left:2px}
 .combo-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
 .combo{display:inline-flex;align-items:center;gap:6px}.combo .swatch{width:18px;height:18px;border-radius:50%;border:1px solid var(--line)}.combo .swatch+.swatch{margin-left:-10px}
 .combo-row{display:grid;gap:2px;margin-bottom:10px}
@@ -984,7 +985,7 @@ function sampleBanner(){
 }
 function filtered(){
   const q=S.q.trim().toLowerCase();
-  let list=S.items.filter(it=>(S.cat==='all'||it.category===S.cat) && (S.sub==='all'||it.subcategory===S.sub) && (S.mat==='all'||it.materialType===S.mat) && (S.fam==='all'||(it.colors||[]).some(c=>c.fam===S.fam)) &&
+  let list=S.items.filter(it=>(S.status==='wash'?it.status==='wash':S.status==='retired'?it.status==='retired':it.status!=='retired') && (S.cat==='all'||it.category===S.cat) && (S.sub==='all'||it.subcategory===S.sub) && (S.mat==='all'||it.materialType===S.mat) && (S.fam==='all'||(it.colors||[]).some(c=>c.fam===S.fam)) &&
     (!q || [it.name,it.brand,it.material,it.materialType,it.subcategory,it.style,it.size,catLabel(it.category),...(it.tags||[]),...(it.colors||[]).map(c=>c.name)].join(' ').toLowerCase().includes(q)));
   // By layer, as Dixon Atelier dresses you: base layer, shirt, mid layer, outerwear, then bottoms, shoes and the rest.
   const layerRank = i => { const l=layerOf(i); return l!=null ? l : ({bottoms:4,shoes:5,accessories:6,suits:7,other:8})[i.category] ?? 9; };
@@ -1022,6 +1023,7 @@ function closetHTML(){
     <div class="chips" role="group" aria-label="Category">
       <button class="chip" data-act="cat" data-v="all" aria-pressed="${S.cat==='all'}">All <span class="n">${S.items.length}</span></button>
       ${CATS.filter(([id])=>counts[id]).map(([id,l])=>`<button class="chip" data-act="cat" data-v="${id}" aria-pressed="${S.cat===id}">${l} <span class="n">${counts[id]}</span></button>`).join('')}
+      ${[['wash','In the wash'],['retired','Retired']].map(([k,l])=>{ const n=S.items.filter(i=>i.status===k).length; return n||S.status===k?`<button class="chip" data-act="status-view" data-v="${k}" aria-pressed="${S.status===k}">${l} <span class="n">${n}</span></button>`:''; }).join('')}
     </div>
     ${S.cat!=='all'&&(subList.length>1||S.sub!=='all')?`<div class="chips" role="group" aria-label="${esc(catLabel(S.cat))} types">
       <button class="chip" data-act="sub" data-v="all" aria-pressed="${S.sub==='all'}">All types</button>
@@ -1063,6 +1065,51 @@ function outfitsHTML(){
     <div class="card-meta"><div class="card-name">${esc(o.name||'Untitled outfit')}</div><div class="card-foot"><span class="card-sub">${(o.itemIds||[]).length} pieces</span><span class="wears">${o.wears||0}× worn</span></div></div>${o.sample?'<span class="badge">Example</span>':''}</button>
     <button class="btn oc-share" data-act="share-outfit" data-id="${esc(o.id)}" aria-label="Share ${esc(o.name||'outfit')}">${icon('share')}Share</button></div>`).join('')}</div>`
   :`<div class="empty"><h3>No outfits yet</h3><p>Combine pieces from your closet into looks you can reach for on busy mornings.</p><button class="btn primary" data-act="new-outfit">Build your first outfit</button></div>`}`;
+}
+/* ----- Insights → Your palette: every piece's colors, weighted by how much of the piece each covers, with near-identical
+   shades merged (charcoal, graphite and off-black are one dark grey), then shown neutrals first and by hue. ----- */
+// Two colors are one palette shade when they look nearly alike, and a true color (navy, olive) never melts into a neutral (black, grey).
+function sameShade(a,b){ const ca=Math.hypot(a[1],a[2]), cb=Math.hypot(b[1],b[2]);
+  if((ca<7)!==(cb<7) && Math.abs(ca-cb)>6) return false;
+  return deltaE00(a,b)<8 || (deltaE00(a,b,3)<6 && Math.abs(a[0]-b[0])<18); }
+function paletteGroups(items){
+  const toLab=h=>{ const o=new Float32Array(3); const [r,g,b]=hex2rgb(hexOK(h)); rgb2lab(r,g,b,o,0); return [o[0],o[1],o[2]]; };
+  let groups=[];
+  for(const it of items){ const cs=it.colors||[]; const tot=cs.reduce((s,c)=>s+(c.pct||0),0)||cs.length;
+    cs.forEach(c=>{ const w=c.pct?c.pct/tot:1/cs.length, lab=toLab(c.hex); // each piece counts once, split by how much of it each color covers
+      const g=groups.find(g=>sameShade(g.lab,lab));
+      if(g){ const n=g.n+w; g.lab=g.lab.map((v,k)=>(v*g.n+lab[k]*w)/n); g.n=n; } else groups.push({lab,n:w}); }); }
+  // second pass: groups that drifted together merge too
+  groups.sort((a,b)=>b.n-a.n);
+  for(let i=0;i<groups.length;i++) for(let j=groups.length-1;j>i;j--) if(sameShade(groups[i].lab,groups[j].lab)){ const a=groups[i],b=groups[j],n=a.n+b.n; a.lab=a.lab.map((v,k)=>(v*a.n+b.lab[k]*b.n)/n); a.n=n; groups.splice(j,1); }
+  const total=groups.reduce((s,g)=>s+g.n,0)||1;
+  let out=groups.map(g=>{ const hex=rgb2hex(...lab2rgb(...g.lab)), nm=nameColor(hex), chroma=Math.hypot(g.lab[1],g.lab[2]), hue=(Math.atan2(g.lab[2],g.lab[1])*180/Math.PI+360)%360;
+    return {hex,name:nm.name,fam:nm.fam,n:g.n,pct:Math.round(g.n/total*100),neutral:chroma<12,hue,L:g.lab[0]}; });
+  // the same name twice (two greys that round to "Grey") becomes one
+  const byName=new Map(); for(const g of out){ const e=byName.get(g.name); if(e){ e.n+=g.n; e.pct+=g.pct; } else byName.set(g.name,g); } out=[...byName.values()];
+  // keep the 8 biggest; tiny leftovers fold into the nearest kept color so percentages still add up
+  out.sort((a,b)=>b.n-a.n); const keep=out.slice(0,8), rest=out.slice(8);
+  for(const r of rest){ const near=keep.reduce((b,k)=>deltaE00(toLab(k.hex),toLab(r.hex))<deltaE00(toLab(b.hex),toLab(r.hex))?k:b,keep[0]); near.n+=r.n; near.pct+=r.pct; }
+  return smoothOrder(keep,toLab);
+}
+// Dark to light along the smoothest path: tries every order (8 colors at most) and keeps the one where each step to the
+// next color is smallest, with going darker again costing extra, so the strip flows like one gradient.
+function smoothOrder(list,toLab){
+  if(list.length<3) return list.sort((a,b)=>a.L-b.L);
+  const labs=list.map(g=>toLab(g.hex)), n=list.length, step=(i,j)=>deltaE00(labs[i],labs[j])+Math.max(0,labs[i][0]-labs[j][0]);
+  const cost=list.map((_,i)=>list.map((_,j)=>step(i,j)));
+  const ids=[...list.keys()].sort((a,b)=>labs[a][0]-labs[b][0]), first=ids[0], last=ids[n-1], mid=ids.slice(1,-1);
+  let best=null, bestC=Infinity; const used=new Array(n).fill(false), path=[first];
+  (function walk(c){ if(c>=bestC) return; if(path.length===n-1){ const t=c+cost[path[path.length-1]][last]; if(t<bestC){ bestC=t; best=[...path,last]; } return; }
+    for(const k of mid) if(!used[k]){ used[k]=true; path.push(k); walk(c+cost[path[path.length-2]][k]); path.pop(); used[k]=false; } })(0);
+  return best.map(i=>list[i]);
+}
+// One soft gradient for the palette strip: each color holds its share, then blends into the next.
+function paletteGradient(groups){
+  const tot=groups.reduce((s,g)=>s+g.n,0)||1; let at=0; const stops=[];
+  groups.forEach((g,i)=>{ const w=g.n/tot*100, b=Math.min(w*.3,4), c=hexOK(g.hex);
+    stops.push(`${c} ${(i?at+b:0).toFixed(1)}%`, `${c} ${(i<groups.length-1?at+w-b:100).toFixed(1)}%`); at+=w; });
+  return `linear-gradient(90deg,${stops.join(',')})`;
 }
 /* ----- Insights → Color combos: the pairing you wear most, proven pairings your closet can already make, and ones that fight ----- */
 // A piece's color as a stylist would name it (finer than the color family: navy isn't just blue, khaki isn't just brown).
@@ -1125,8 +1172,7 @@ function insightsHTML(){
   const mats=MATERIALS.map(m=>[m,items.filter(i=>i.materialType===m).length]).filter(c=>c[1]).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const maxM=Math.max(1,...mats.map(c=>c[1]));
   const maxC=Math.max(1,...counts.map(c=>c[1]));
-  const pal={}; items.forEach(i=>(i.colors||[]).forEach(c=>{ pal[c.name]=pal[c.name]||{hex:c.hex,n:0}; pal[c.name].n+=(c.pct||50)/100; }));
-  const palArr=Object.entries(pal).sort((a,b)=>b[1].n-a[1].n);
+  const palG=paletteGroups(items), palArr=palG.map(g=>[g.name,{hex:g.hex,n:g.n,pct:g.pct}]);
   const most=[...items].sort((a,b)=>(b.wears||0)-(a.wears||0)).slice(0,5);
   const DAY=864e5, now=Date.now(), idleDays=S.idleDays||60;
   const since=i=>i.lastWorn?Math.max(0,Math.floor((now-new Date(i.lastWorn+'T12:00').getTime())/DAY)):Infinity;
@@ -1142,8 +1188,8 @@ function insightsHTML(){
   </div>
   <div class="panels">
     ${recsHTML()}
-    <div class="panel wide"><h3>Your palette</h3>${palArr.length?`<div class="palette">${palArr.map(([nm,p])=>`<i style="flex:${p.n.toFixed(2)};background:${hexOK(p.hex)}" title="${esc(nm)}"></i>`).join('')}</div>
-      <div class="legend">${palArr.slice(0,10).map(([nm,p])=>`<span><i class="swatch" style="background:${hexOK(p.hex)}"></i>${esc(nm)}</span>`).join('')}</div>`:'<p class="muted">Add pieces to see your palette.</p>'}</div>
+    <div class="panel wide"><h3>Your palette</h3>${palArr.length?`<div class="palette" style="background:${paletteGradient(palG)}">${palArr.map(([nm,p])=>`<i style="flex:${p.n.toFixed(2)}" title="${esc(nm)} · ${p.pct}%"></i>`).join('')}</div>
+      <div class="legend">${palArr.map(([nm,p])=>`<span><i class="swatch" style="background:${hexOK(p.hex)}"></i>${esc(nm)} <b class="pct">${p.pct}%</b></span>`).join('')}</div>`:'<p class="muted">Add pieces to see your palette.</p>'}</div>
     <div class="panel"><h3>By material</h3><div class="bars">${mats.map(([l,c])=>`<div class="bar"><span>${esc(l)}</span><span class="track"><span class="fill" style="display:block;width:${c/maxM*100}%"></span></span><span class="v">${c}</span></div>`).join('')||'<p class="muted" style="margin:0">Set a material on your pieces to see this.</p>'}</div></div>
     <div class="panel"><h3>By category</h3><div class="bars">${counts.map(([l,c])=>`<div class="bar"><span>${l}</span><span class="track"><span class="fill" style="display:block;width:${c/maxC*100}%"></span></span><span class="v">${c}</span></div>`).join('')||'<p class="muted">No pieces yet.</p>'}</div></div>
     ${colorCombosHTML()}
@@ -1192,7 +1238,11 @@ function showItem(id){
         <button class="btn" data-act="outfit-with" data-id="${esc(it.id)}">Style it</button>
         <button class="btn" data-act="find-item" data-id="${esc(it.id)}">${icon('search')}Find exact item</button>
         <button class="btn" data-act="share-item" data-id="${esc(it.id)}">Share</button>
-        <button class="btn ghost danger" data-act="del-item" data-id="${esc(it.id)}">Delete</button></div>`}
+        <button class="btn" data-act="item-status" data-v="wash" data-id="${esc(it.id)}">${it.status==='wash'?'Back from the wash':'In the wash'}</button>
+        <button class="btn" data-act="dup-item" data-id="${esc(it.id)}">Duplicate</button>
+        <button class="btn ghost" data-act="item-status" data-v="retired" data-id="${esc(it.id)}">${it.status==='retired'?'Bring it back':'Retire'}</button>
+        <button class="btn ghost danger" data-act="del-item" data-id="${esc(it.id)}">Delete</button></div>
+        ${it.status?`<p class="small muted" style="margin:8px 0 0">${it.status==='wash'?'In the wash: left out of shuffles and weather picks until it’s back.':'Retired: kept in your history but hidden from the closet and outfit picks.'}</p>`:''}`}
       </div></div></div>`;
   };
   openSheet('',{kind:'item',refresh:render1}); render1();
@@ -3071,11 +3121,12 @@ function openBuilder({ids=[],name='',editingId=null}={}){
 // A shuffled look is built like getting dressed: maybe a base layer, one shirt or tee, maybe a mid layer, maybe a jacket,
 // one bottom, one pair of shoes, maybe an accessory. Every piece must pair with every other (no two long sleeves, no two
 // pieces from the same layer, no two pants); colors that work together are favored.
-function shuffleIds(){
+function shuffleIds(pool,plan){
   const pick=a=>a[Math.floor(Math.random()*a.length)], chosen=[];
   const fits=i=>chosen.every(c=>pairOK(i,c)) && (!chosen.length || colorsGo(i,{colors:chosen.flatMap(c=>c.colors||[])}) || Math.random()<0.3);
   const add=(pool,chance=1)=>{ if(Math.random()>chance) return; const ok=pool.filter(i=>!chosen.includes(i) && fits(i)); if(ok.length) chosen.push(pick(ok)); };
-  const lay=l=>S.items.filter(i=>layerOf(i)===l && i.category!=='suits'), by=c=>S.items.filter(i=>i.category===c);
+  const ready=pool||S.items.filter(i=>!i.status); // nothing in the wash or retired
+  const lay=l=>ready.filter(i=>layerOf(i)===l && i.category!=='suits'), by=c=>ready.filter(i=>i.category===c);
   add(lay(1)); if(!chosen.length) add(lay(2));            // the main top: a shirt or tee (or a sweater if that's all there is)
   add(lay(0),0.25);                                        // a base layer under it, now and then
   if(chosen.some(i=>layerOf(i)===1)) add(lay(2),0.45);    // a sweater, hoodie or flannel over it
@@ -3188,7 +3239,8 @@ const ACT = {
   view:t=>{ S.view=t.dataset.view; render(); window.scrollTo(0,0); },
   add:()=>startAdd(),
   close:()=>closeSheet(),
-  cat:t=>{ S.cat=t.dataset.v; S.sub='all'; render(); },
+  cat:t=>{ S.cat=t.dataset.v; S.sub='all'; S.status=''; render(); },
+  'status-view':t=>{ S.status=S.status===t.dataset.v?'':t.dataset.v; render(); },
   sub:t=>{ S.sub=t.dataset.v; render(); },
   'view-mode':t=>{ S.iconView=t.dataset.v==='icons'; try{ localStorage.setItem('dc-icon-view',S.iconView?'1':'0'); }catch{} render(); },
   'more-filters':()=>{ S.moreFilters=!S.moreFilters; render(); },
@@ -3293,6 +3345,12 @@ const ACT = {
   'photo-store':()=>{ if(!Add.swapBack) return; Add.ownCut=Add.cut||'none'; Add.cut=Add.swapBack; Add.swapBack=null; renderDetailsStep(); },
   'lookup-back':()=>{ const q=Add.hint||''; Add={ step:'photo', editingId:null, data:{category:'tops',colors:[],seasons:[],tags:[]}, cut:null, touched:{} }; renderPhotoStep(); $('#lookup-q').value=q; },
   'ed-auto':()=>{ const r=$('#ed-tol'); if(!r||!Ed) return; r.value=Ed.autoT; r.dispatchEvent(new Event('input',{bubbles:true})); },
+  // Laundry and archive (from Libre-Closet): in the wash or retired pieces stay saved but sit out of picks.
+  'item-status':async t=>{ const it=Store.get(t.dataset.id); if(!it) return; const v=t.dataset.v, next=it.status===v?'':v;
+    try{ await Store.patch(it.id,{status:next}); toast(next==='wash'?'Marked in the wash':next==='retired'?'Retired':v==='wash'?'Back in rotation':'Back in your closet'); refreshOpenSheet(); }catch{ toast('Couldn’t update it. Try again.'); } },
+  'dup-item':async t=>{ const it=Store.get(t.dataset.id); if(!it) return; const copy=clean(it); delete copy.id;
+    Object.assign(copy,{name:(it.name||'Piece')+' (copy)',wears:0,lastWorn:'',createdAt:Date.now(),status:''});
+    try{ const id=Store.newId(); await Store.put(id,copy); closeSheet(); editItem(id); toast('Duplicated. Change the color or size, then save.'); }catch{ toast('Couldn’t duplicate it. Try again.'); } },
   'detail-flip':t=>{ S.detailPhoto = S.detailPhoto===t.dataset.id ? null : t.dataset.id; refreshOpenSheet(); },
   'range-step':t=>{ const r=$('#'+t.dataset.for); if(!r||r.disabled) return; r.value=Math.min(+r.max,Math.max(+r.min,(+r.value)+Number(t.dataset.d))); r.dispatchEvent(new Event('input',{bubbles:true})); },
   'wears-step':t=>{ const i=$('#f-wears'); const n=Math.max(0,(Number(i.value)||0)+Number(t.dataset.d)); i.value=n;
