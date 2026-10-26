@@ -1044,7 +1044,7 @@ function closetHTML(){
   const activeFilters=(S.mat!=='all')+(S.fam!=='all');
   const mats={}; S.items.filter(i=>(S.cat==='all'||i.category===S.cat)&&i.materialType).forEach(i=>mats[i.materialType]=(mats[i.materialType]||0)+1);
   const list=filtered();
-  return `<div class="view-head"><div><h1>Closet</h1><p>${S.items.length} piece${S.items.length===1?'':'s'}${S.usingSamples?' (examples)':''}</p></div><div class="row" style="align-items:center"><span class="store-note">${esc(Store.note())}</span>${!S.usingSamples&&Store.downloads?'<button class="btn" data-act="backup">Download backup</button>':''}${!S.usingSamples&&!S.selecting?'<button class="btn" data-act="select-start">Select</button>':''}<div class="chips" role="group" aria-label="Show pieces as"><button class="chip" data-act="view-mode" data-v="icons" aria-pressed="${S.iconView&&S.iconStyle==='photo'}" title="Icons made from each piece's photo">Icons</button><button class="chip" data-act="view-mode" data-v="drawn" aria-pressed="${S.iconView&&S.iconStyle==='drawn'}" title="Drawn icons in one uniform style">Drawn</button><button class="chip" data-act="view-mode" data-v="photos" aria-pressed="${!S.iconView}">Photos</button></div></div></div>
+  return `<div class="view-head"><div><h1>Closet</h1><p>${S.items.length} piece${S.items.length===1?'':'s'}${S.usingSamples?' (examples)':''}</p></div><div class="row" style="align-items:center"><span class="store-note">${esc(Store.note())}</span>${!S.usingSamples&&Store.downloads?'<button class="btn" data-act="backup">Download backup</button>':''}${!S.usingSamples&&!S.selecting?'<button class="btn" data-act="select-start">Select</button>':''}<div class="chips" role="group" aria-label="Show pieces as"><button class="chip" data-act="view-mode" data-v="icons" aria-pressed="${S.iconView}">Icons</button><button class="chip" data-act="view-mode" data-v="photos" aria-pressed="${!S.iconView}">Photos</button></div></div></div>
   ${S.selecting?`<div class="banner"><p><strong>${S.sel.size} selected</strong> Tap pieces to pick the ones to delete.</p><div class="row"><button class="btn ghost" data-act="select-all">Select all</button><button class="btn" data-act="select-cancel">Cancel</button><button class="btn danger" data-act="select-delete"${S.sel.size?'':' disabled'}>Delete ${S.sel.size||''}</button></div></div>`:''}
   ${sampleBanner()}
   <div class="filters">
@@ -1417,14 +1417,6 @@ function fuseMask(E,prob,mode){ const n=E.n, m=new Uint8Array(n), cl=E.auto;
   else { for(let i=0;i<n;i++){ const p=prob[i]; m[i]= p>.8 ? (E.dbg[i]<E.T*.35&&!E.busy?0:1) : p<.2 ? 0 : cl[i]; } }
   const q=E.q, fg=comps(m,1,E.W,E.H,q), big=Math.max(0,...fg.sizes); for(let i=0;i<n;i++){ const id=fg.lab[i]; if(id>=0 && fg.sizes[id]<big*.03) m[i]=0; }
   return m; }
-// The best cut-out this device can make. With the on-device model loaded (or allowed to load), U²-Net finds the piece and
-// the backdrop match sharpens its edges; without it, the backdrop match alone, as before.
-async function smartCut(img,{mode='fuse',load=VISION.seg!=null}={}){
-  if(!load || mode==='classic') return autoCut(img);
-  const keep=Ed; try{ edPrepare(img); const E=Ed; edAutoSafe(); if(E.hasAlpha) return edExport();
-    const c=document.createElement('canvas'); c.width=E.W; c.height=E.H; c.getContext('2d').putImageData(E.src,0,0);
-    const prob=await visionMask(c,E.W,E.H); E.auto=fuseMask(E,prob,mode); E.ml=true; return edExport(); }
-  catch(e){ console.warn('smart cut',e); Ed=keep; return autoCut(img); } finally { Ed=keep; } }
 function autoCut(img){ const keep=Ed; try{ edPrepare(img); edAutoSafe(); return edExport(); } finally { Ed=keep; } }
 // If the piece is almost the backdrop's color and the first pass erased it, try a much stricter match before giving up.
 function edAutoSafe(){ const E=Ed; edAuto(); if(E.hasAlpha) return;
@@ -2495,14 +2487,14 @@ const pieceImg = it => S.iconView ? iconSrc(it) : Store.imgSrc(it);
 const hash36 = s => { let h=7; for(let i=0;i<s.length;i++) h=h*31+s.charCodeAt(i)|0; return (h>>>0).toString(36); };
 // Icons are saved on the device, so a phone draws each one once, not on every open. The drawing code's own fingerprint is
 // part of the key: when the icon style changes, old icons quietly redraw.
-let ICON_VER=''; const iconVer=()=>ICON_VER||(ICON_VER=hash36([makeIcon,photoIcon,iconSticker,photoSource,scanTexture,scanImage,shapeOf,genericShape,shapeDetails,drawIconPattern,drawnAccents].join('')+JSON.stringify(SHAPES)));
+let ICON_VER=''; const iconVer=()=>ICON_VER||(ICON_VER=hash36([makeIcon,iconSticker,scanTexture,scanImage,shapeOf,genericShape,shapeDetails,drawIconPattern,drawnAccents].join('')+JSON.stringify(SHAPES)));
 const SAVED_ICONS=new Map(); let iconDB=null;
 const iconStore = mode => iconDB.then(db=>db?db.transaction('i',mode).objectStore('i'):null);
 const iconsReady = (()=>{ try{ iconDB=new Promise(res=>{ const r=indexedDB.open('dixon-icons',1); r.onupgradeneeded=()=>r.result.createObjectStore('i',{keyPath:'id'}); r.onsuccess=()=>res(r.result); r.onerror=()=>res(null); });
   return iconStore('readonly').then(st=>st&&new Promise(res=>{ const q=st.getAll(); q.onsuccess=()=>{ (q.result||[]).forEach(e=>SAVED_ICONS.set(e.id,e)); res(); }; q.onerror=()=>res(); })).catch(()=>{}); }
   catch{ iconDB=Promise.resolve(null); return Promise.resolve(); } })();
 function iconSrc(it){
-  const src=Store.imgSrc(it), key=hash36([iconVer(),S.iconStyle,(it.wb||[]).join(),src.length,src.slice(-24),(it.colors||[]).map(c=>c.hex).join(),it.pattern,it.materialType,it.subcategory,it.style,it.category,it.name,it.desc,it.notes,it.productImg,it.reference,it.sleeve,it.fit,it.keepBg,it.drawn,(it.tags||[]).join()].join('|'));
+  const src=Store.imgSrc(it), key=hash36([iconVer(),src.length,src.slice(-24),(it.colors||[]).map(c=>c.hex).join(),it.pattern,it.materialType,it.subcategory,it.style,it.category,it.name,it.desc,it.notes,it.productImg,it.reference,it.sleeve,it.fit,it.keepBg,it.drawn,(it.tags||[]).join()].join('|'));
   if(ICONS.get(it.id)?.k===key) return ICONS.get(it.id).url;
   const saved=SAVED_ICONS.get(it.id); if(saved?.k===key){ ICONS.set(it.id,saved); return saved.url; }
   if(!iconPending.has(it.id+key)){ iconPending.add(it.id+key); iconQueue.push({it,key}); pumpIcons(); }
@@ -2867,69 +2859,6 @@ function drawnAccents(x,it,box,cols,c1){
     if(/brass|gold(en)? (zip|button|hardware)/.test(words)){ x.save(); x.scale(x.canvas.width/200,x.canvas.height/200); x.strokeStyle='#C9A24A'; x.lineWidth=3; x.stroke(path2d('M100 46L100 180')); x.restore(); }
   }
 }
-/* Photo icons: the piece's own outline and colors, from its cut-out, flattened into a few clean tones with soft light
-   and shade, so the icon looks like the real thing but stays as clean as a drawn one. */
-S.iconStyle = (()=>{ try{ return localStorage.getItem('dc-icon-style')||'photo'; }catch{ return 'photo'; } })();
-// The piece alone (cut out), or null when there's no usable photo.
-async function photoSource(it){
-  const src=Store.imgSrc(it); if(it.drawn || !src || src.startsWith('data:image/gif') || src.startsWith('data:image/svg')) return null;
-  const img=await loadImg(src); if(!it.keepBg) return img;
-  const cut=await smartCut(img).catch(()=>null); if(cut?.wb && !it.wb) it.wb=cut.wb; return cut && !cut.keepBg ? cut.canvas : null;
-}
-function photoIcon(it,img,N=200,pad=14){
-  const iw=img.naturalWidth||img.width, ih=img.naturalHeight||img.height, s0=Math.min(1,260/Math.max(iw,ih)), w0=Math.max(1,Math.round(iw*s0)), h0=Math.max(1,Math.round(ih*s0));
-  const c0=document.createElement('canvas'); c0.width=w0; c0.height=h0; const x0=c0.getContext('2d',{willReadFrequently:true}); x0.imageSmoothingQuality='high'; x0.drawImage(img,0,0,w0,h0);
-  const d0=x0.getImageData(0,0,w0,h0).data; let bx0=w0,by0=h0,bx1=-1,by1=-1;
-  for(let y=0;y<h0;y++) for(let x=0;x<w0;x++) if(d0[(y*w0+x)*4+3]>60){ if(x<bx0)bx0=x; if(x>bx1)bx1=x; if(y<by0)by0=y; if(y>by1)by1=y; }
-  if(bx1<0) return null; const bw=bx1-bx0+1, bh=by1-by0+1; if(bw<10||bh<10) return null;
-  // shoes point their toe right, like the drawn ones: the heel is the taller end
-  let flip=false; if(isShoeItem(it)){ const topAt=x=>{ for(let y=by0;y<=by1;y++) if(d0[(y*w0+x)*4+3]>60) return y; return by1; };
-    let l=0,r=0,k=0; for(let x=bx0;x<bx0+bw*.25;x++){ l+=topAt(Math.round(x)); r+=topAt(Math.round(bx1-(x-bx0))); k++; } flip=r/k<l/k; }
-  const k=Math.min((N-2*pad)/bw,(N-2*pad)/bh), dw=bw*k, dh=bh*k, P=document.createElement('canvas'); P.width=P.height=N;
-  const px=P.getContext('2d',{willReadFrequently:true}); px.imageSmoothingQuality='high'; px.save(); if(flip){ px.translate(N,0); px.scale(-1,1); }
-  px.drawImage(c0,bx0,by0,bw,bh,(N-dw)/2,(N-dh)/2,dw,dh); px.restore();
-  const D=px.getImageData(0,0,N,N), n=N*N, d=it.wb?applyGains(D.data,n,it.wb):D.data; // colors as they'd look in neutral light
-  // 1. A clean outline: the edge is softened and re-cut, specks dropped, pinholes filled.
-  let a=new Float32Array(n); for(let i=0;i<n;i++) a[i]=d[i*4+3]/255;
-  const blur=(src)=>{ const t=new Float32Array(n), o=new Float32Array(n);
-    for(let y=0;y<N;y++) for(let x=0;x<N;x++){ let s=0,c=0; for(let dx=-1;dx<=1;dx++){ const xx=x+dx; if(xx<0||xx>=N) continue; s+=src[y*N+xx]; c++; } t[y*N+x]=s/c; }
-    for(let y=0;y<N;y++) for(let x=0;x<N;x++){ let s=0,c=0; for(let dy=-1;dy<=1;dy++){ const yy=y+dy; if(yy<0||yy>=N) continue; s+=t[yy*N+x]; c++; } o[y*N+x]=s/c; } return o; };
-  a=blur(blur(a)); const m=new Uint8Array(n); for(let i=0;i<n;i++) m[i]=a[i]>.5?1:0;
-  const q=new Int32Array(n), fg=comps(m,1,N,N,q), big=Math.max(0,...fg.sizes); for(let i=0;i<n;i++){ const id=fg.lab[i]; if(id>=0 && fg.sizes[id]<big*.04) m[i]=0; }
-  const bg=comps(m,0,N,N,q); for(let i=0;i<n;i++){ const id=bg.lab[i]; if(id>=0 && !bg.touch[id] && bg.sizes[id]<n*.002) m[i]=1; }
-  const on=[]; for(let i=0;i<n;i++) if(m[i]) on.push(i); if(on.length<200) return null;
-  // 2. Edge pixels borrow color from just inside, so no backdrop halo shows.
-  const lab=new Float32Array(n*3), have=new Uint8Array(n); for(const i of on) if(d[i*4+3]>200){ rgb2lab(d[i*4],d[i*4+1],d[i*4+2],lab,i*3); have[i]=1; }
-  for(let pass=0;pass<6;pass++){ const add=[]; for(const i of on) if(!have[i]){ const x=i%N; for(const j of [x>0?i-1:-1,x<N-1?i+1:-1,i-N,i+N]) if(j>=0&&j<n&&have[j]){ lab.copyWithin(i*3,j*3,j*3+3); add.push(i); break; } } for(const i of add) have[i]=1; }
-  // 3. Flat tones: k-means on color, near-identical tones merged, specks repainted by their neighbors.
-  const ids=on.filter(i=>have[i]), pts=new Float32Array(ids.length*3); ids.forEach((i,j)=>{ pts[j*3]=lab[i*3]*.7; pts[j*3+1]=lab[i*3+1]; pts[j*3+2]=lab[i*3+2]; });
-  const km=kmeans(pts,ids.length,6,10); let C=[...Array(km.k)].map((_,c)=>[km.C[c*3]/.7,km.C[c*3+1],km.C[c*3+2]]); const cnt=[...km.counts];
-  const map=C.map((_,c)=>c); for(let i=0;i<C.length;i++) for(let j=0;j<i;j++) if(map[j]===j && cnt[i] && deltaE00(C[i],C[j])<7){ map[i]=j; break; }
-  const idx=new Int16Array(n).fill(-1); ids.forEach((i,j)=>{ let c=km.assign[j]; while(map[c]!==c) c=map[c]; idx[i]=c; });
-  const area=C.map(()=>0); for(const i of ids) area[idx[i]]++;
-  for(const i of ids) if(area[idx[i]]<ids.length*.006){ let b=-1,bd=1e9; C.forEach((c,k2)=>{ if(map[k2]===k2 && area[k2]>=ids.length*.006){ const dd=deltaE00(c,[lab[i*3],lab[i*3+1],lab[i*3+2]]); if(dd<bd){ bd=dd; b=k2; } } }); if(b>=0) idx[i]=b; }
-  for(let pass=0;pass<2;pass++){ const nx=idx.slice(), tally=new Int16Array(C.length);
-    for(const i of ids){ const x=i%N, y=(i-x)/N; tally.fill(0); let top=idx[i];
-      for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){ const yy=y+dy, xx=x+dx; if(yy<0||xx<0||yy>=N||xx>=N) continue; const k2=idx[yy*N+xx]; if(k2>=0 && ++tally[k2]>tally[top]) top=k2; }
-      if(top!==idx[i] && tally[top]>=6) nx[i]=top; } idx.set(nx); }
-  // Small islands of a tone (glints, lint, wrinkles' speckle) melt into the tone around them; logos and stripes are big enough to stay.
-  { const seen=new Uint8Array(n), qq=new Int32Array(n), minA=Math.max(12,ids.length*.004);
-    for(const s0 of ids){ if(seen[s0]) continue; const k2=idx[s0]; let h=0,t=0; qq[t++]=s0; seen[s0]=1;
-      while(h<t){ const i=qq[h++], x=i%N; for(const j of [x>0?i-1:-1,x<N-1?i+1:-1,i-N,i+N]) if(j>=0&&j<n&&!seen[j]&&idx[j]===k2){ seen[j]=1; qq[t++]=j; } }
-      if(t>=minA) continue; const tally=new Map(); for(let z=0;z<t;z++){ const i=qq[z], x=i%N; for(const j of [x>0?i-1:-1,x<N-1?i+1:-1,i-N,i+N]) if(j>=0&&j<n&&idx[j]>=0&&idx[j]!==k2) tally.set(idx[j],(tally.get(idx[j])||0)+1); }
-      const to=[...tally.entries()].sort((p,q2)=>q2[1]-p[1])[0]?.[0]; if(to!=null) for(let z=0;z<t;z++) idx[qq[z]]=to; } }
-  // 4. Light and shade: each tone keeps three steps (shadow, base, highlight), read from a blurred copy of the photo so they
-  // follow the big folds as soft bands, not the weave.
-  let Lb=new Float32Array(n); for(const i of ids) Lb[i]=lab[i*3]-C[idx[i]][0]; for(let b=0;b<3;b++) Lb=blur(Lb);
-  const tone=new Int8Array(n); for(const i of ids) tone[i]=Lb[i]<-6?-1:Lb[i]>7?1:0;
-  const F=document.createElement('canvas'); F.width=F.height=N; const fx=F.getContext('2d'), out=fx.createImageData(N,N), o=out.data;
-  for(const i of on){ const c=C[Math.max(0,idx[i]>=0?idx[i]:0)], t=tone[i], [r,g,b]=lab2rgb(Math.max(0,Math.min(100,c[0]+t*(c[0]>80?4:6.5))),c[1],c[2]);
-    o[i*4]=r; o[i*4+1]=g; o[i*4+2]=b; o[i*4+3]=Math.round(Math.min(1,Math.max(0,(a[i]-.35)/.3))*255); }
-  fx.putImageData(out,0,0);
-  const M=document.createElement('canvas'); M.width=M.height=N; M.getContext('2d').drawImage(F,0,0);
-  const main=C.map((c,k2)=>[k2,area[k2]]).sort((p,q2)=>q2[1]-p[1])[0][0];
-  return {F,M,c1:rgb2hex(...lab2rgb(...C[main]))};
-}
 // Sticker look for every icon: a darker outline of its own color and a soft shadow.
 function iconSticker(F,M,c1,N=200){ const light=lumOf(c1)>.55, mk=()=>{ const c=document.createElement('canvas'); c.width=c.height=N; return c; };
   const O=mk(), o=O.getContext('2d'), L=mk(), l=L.getContext('2d');
@@ -2939,7 +2868,6 @@ function iconSticker(F,M,c1,N=200){ const light=lumOf(c1)>.55, mk=()=>{ const c=
   o.shadowColor='transparent'; o.drawImage(F,0,0);
   return O.toDataURL('image/webp',.92); } // webp with see-through edges where the browser can, png where it can't
 async function makeIcon(it){
-  if(S.iconStyle==='photo'){ try{ const src=await photoSource(it); const r=src&&photoIcon(it,src); if(r) return iconSticker(r.F,r.M,r.c1); }catch(e){ console.warn('photo icon',e); } }
   const N=200, pad=16, mk=()=>{ const c=document.createElement('canvas'); c.width=N; c.height=N; return c; };
   const M=mk(), m=M.getContext('2d',{willReadFrequently:true});
   // 1. The outline: uniform icons, so every piece is its type's drawn icon at the same size and in the same style.
@@ -3581,8 +3509,7 @@ const ACT = {
   cat:t=>{ S.cat=t.dataset.v; S.sub='all'; S.status=''; render(); },
   'status-view':t=>{ S.status=S.status===t.dataset.v?'':t.dataset.v; render(); },
   sub:t=>{ S.sub=t.dataset.v; render(); },
-  'view-mode':t=>{ const v=t.dataset.v; S.iconView=v!=='photos'; if(v!=='photos') S.iconStyle=v==='drawn'?'drawn':'photo';
-    try{ localStorage.setItem('dc-icon-view',S.iconView?'1':'0'); localStorage.setItem('dc-icon-style',S.iconStyle); }catch{} render(); },
+  'view-mode':t=>{ S.iconView=t.dataset.v==='icons'; try{ localStorage.setItem('dc-icon-view',S.iconView?'1':'0'); localStorage.removeItem('dc-icon-style'); }catch{} render(); },
   'more-filters':()=>{ S.moreFilters=!S.moreFilters; render(); },
   'icon-view':t=>{ S.iconView=t.dataset.v==='1'; try{ localStorage.setItem('dixon.iconView',S.iconView?'1':'0'); }catch{} render(); },
   'shop-pick':()=>{ const f=$('#shop-file'); f.value=''; f.click(); },
