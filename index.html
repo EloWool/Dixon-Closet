@@ -84,6 +84,15 @@ h1,h2,h3,h4{font-family:var(--f-display);text-wrap:balance;margin:0}
 .top-in,.tabbar,.sheet,.panel,.banner{position:relative;isolation:isolate}
 .top-in::after,.tabbar::after,.sheet::after,.panel::after,.banner::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:-1;
   background:radial-gradient(120% 70% at 20% -10%,var(--glass-spec),transparent 46%),radial-gradient(80% 60% at 110% 120%,rgba(255,255,255,.10),transparent 60%);opacity:.55}
+/* Phones: blur costs every scrolled frame, so only the floating bars and sheets keep the glass; everything that scrolls
+   is a flat surface that looks the same, and off-screen cards skip layout and paint. */
+@media (pointer:coarse),(max-width:720px){
+  .search,select.sel,.chip,.seg,.panel,.kpi,.banner,.finder,.icon-btn,.btn:not(.primary):not(.confirm):not(.ghost){-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--surface);box-shadow:inset 0 1px 0 var(--glass-spec)}
+  .panel::after,.banner::after{display:none}
+  .card{content-visibility:auto;contain-intrinsic-size:auto 240px}
+  .grid,.panels,.sheet-body{-webkit-overflow-scrolling:touch}
+  button,a,.chip,.card{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+}
 @media (prefers-reduced-transparency:reduce){
   .top-in,.tabbar,.sheet,.search,select.sel,.chip,.seg,.panel,.kpi,.banner,.finder,.toast,.icon-btn,.btn:not(.primary):not(.confirm):not(.ghost){background:var(--surface);-webkit-backdrop-filter:none;backdrop-filter:none}
 }
@@ -124,6 +133,16 @@ header.top{padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:ma
   .tabbar .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 4px 8px;border-radius:24px;font-size:12px;letter-spacing:.1em}
   .tabbar .tab svg{width:22px;height:22px}
   .fab{display:inline-flex;position:fixed;z-index:31;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(92px + env(safe-area-inset-bottom,0px));padding:14px 22px}
+  /* Phones: the first pieces show without scrolling. A smaller title, tighter rows, and the add button as a round plus. */
+  main{padding-block:12px 140px}
+  .view-head{gap:10px;margin-bottom:14px;align-items:center}
+  main .view-head h1{font-size:42px}
+  main .view-head p{margin-top:4px;font-size:12px}
+  main .banner{padding:14px 16px;gap:10px}
+  main .banner p{font-size:14px;line-height:1.35}
+  .fab{width:58px;height:58px;padding:0;justify-content:center;border-radius:50%;font-size:0;gap:0;box-shadow:0 10px 26px rgba(0,0,0,.35)}
+  .fab svg{width:24px;height:24px}
+  .filters{gap:10px}
 }
 
 main{padding-block:28px 150px}
@@ -166,8 +185,10 @@ select.sel{border-radius:999px;padding:10px 16px;min-height:48px;font-weight:600
   box-shadow:0 1px 0 var(--line),0 12px 30px rgba(30,20,6,.06);transition:transform .25s ease,box-shadow .25s ease}
 .tile img{width:100%;height:100%;object-fit:contain;padding:11%;transition:transform .35s ease}
 .tile.full img{padding:0;object-fit:cover}
+@media (hover:hover){
 .card:hover .tile{transform:translateY(-3px);box-shadow:0 1px 0 var(--line),0 20px 40px rgba(30,20,6,.12)}
-.card:hover .tile img{transform:scale(1.04)}
+.card:hover .tile img{transform:scale(1.04)} }
+.card:active .tile{transform:scale(.97);transition-duration:.08s}
 .card.selected .tile{box-shadow:0 0 0 3px var(--brand),0 12px 30px rgba(30,20,6,.10)}
 .card.selected::after{content:"✓";position:absolute;top:10px;right:10px;width:26px;height:26px;border-radius:50%;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-weight:700}
 .card-meta{padding:0 4px;min-width:0}
@@ -995,7 +1016,7 @@ function filtered(){
 function cardHTML(it){
   const picked = S.selecting && S.sel.has(it.id);
   return `<button class="card${picked?' selected':''}" data-act="open-item" data-id="${esc(it.id)}"${S.selecting?` aria-pressed="${picked}"`:''}>
-    <div class="tile${S.iconView?' icon':it.keepBg?' full':''}"><img src="${esc(pieceImg(it))}" alt="${esc(it.name||'')}" loading="lazy"></div>
+    <div class="tile${S.iconView?' icon':it.keepBg?' full':''}"><img src="${esc(pieceImg(it))}"${icAttr(it)} alt="${esc(it.name||'')}" loading="lazy" decoding="async"></div>
     <div class="card-meta"><div class="card-name">${esc(it.name||'Untitled piece')}</div>
       <div class="card-sub">${esc([it.subcategory||catLabel(it.category),it.brand].filter(Boolean).join(' · '))}</div>
       <div class="card-foot"><span class="dots">${(it.colors||[]).slice(0,4).map(c=>`<i style="background:${hexOK(c.hex)}" title="${esc(c.name)}"></i>`).join('')}</span><span class="wears">${it.wears||0}× worn</span></div></div>
@@ -1038,8 +1059,12 @@ function closetHTML(){
       ${Object.keys(FAMS).filter(f=>fams[f]).map(f=>`<button class="chip" data-act="fam" data-v="${f}" aria-pressed="${S.fam===f}"><span class="swatch" style="background:${FAMS[f]}"></span>${f[0].toUpperCase()+f.slice(1)}</button>`).join('')}
     </div>`:''}
   </div>
-  ${list.length?`<div class="grid">${list.map(cardHTML).join('')}</div>`:`<div class="empty"><h3>Nothing matches</h3><p>Try a different search or clear the filters.</p><button class="btn" data-act="clear-filters">Clear filters</button></div>`}`;
+  <div id="closet-results">${resultsHTML(list)}</div>`;
 }
+const resultsHTML = list => list.length?`<div class="grid">${list.map(cardHTML).join('')}</div>`:`<div class="empty"><h3>Nothing matches</h3><p>Try a different search or clear the filters.</p><button class="btn" data-act="clear-filters">Clear filters</button></div>`;
+// Typing in search redraws only the pieces, never the search box, so a phone keyboard stays open and steady.
+let searchT=0;
+function searchResults(){ clearTimeout(searchT); searchT=setTimeout(()=>{ const r=$('#closet-results'); if(r && S.view==='closet') r.innerHTML=resultsHTML(filtered()); else render(); },90); }
 const LAYER_SUBS = ['Sweaters','Cardigans','Turtlenecks','Hoodies','Zip hoodies','Sweatshirts','Quarter-zips','Vests','Overshirts & flannels'];
 const isLayer = i => i.category==='layers' || (i.category==='tops' && LAYER_SUBS.includes(i.subcategory));
 const SLOT_OF = c => ({outerwear:'outer',layers:'outer',suits:'outer',tops:'top',active:'top',bottoms:'bottom',shoes:'shoes',accessories:'acc'}[c]||'acc');
@@ -1050,7 +1075,7 @@ function boardHTML(ids){
   const items=ids.map(findItem).filter(Boolean);
   if(!items.length) return `<div class="board" style="grid-template-columns:1fr"><div class="none">Pick pieces below to build the look.</div></div>`;
   const g={outer:[],top:[],dress:[],bottom:[],shoes:[],acc:[]}; items.forEach(i=>g[slotOf(i)].push(i));
-  const img = i => `<img src="${esc(pieceImg(i))}" alt="${esc(i.name||'')}">`;
+  const img = i => `<img src="${esc(pieceImg(i))}"${icAttr(i)} alt="${esc(i.name||'')}" decoding="async">`;
   const slot = (arr,cls='') => arr.length?`<div class="slot ${cls}">${arr.map(img).join('')}</div>`:'';
   const main = [slot([...g.top,...g.dress]), slot(g.bottom), slot(g.shoes,'shoes')].join('');
   const side = [slot(g.outer), slot(g.acc)].join('');
@@ -1211,7 +1236,7 @@ function showItem(id){
     const rows=[['Model',it.reference],['Brand',it.brand],['Style no.',it.styleNumber],['Size',it.size],['Fit',it.fit],['Style',it.style],...SHOE_FIELDS.map(([k,l])=>[l,isShoeItem(it)?it[k]:'']),['Pattern',it.pattern&&it.pattern!=='Solid'?it.pattern:''],['Material',it.materialType],['Fabric',it.material],['Care',it.care],['Colors',(it.colors||[]).map(c=>c.name).join(', ')],['Seasons',(it.seasons||[]).join(', ')],['Paid',it.price!=null&&it.price!==''?money(it.price):''],['Last worn',fmtDate(it.lastWorn)]].filter(r=>r[1]);
     $('#overlay .sheet').innerHTML = head('Piece')+`<div class="sheet-body"><div class="detail">
       ${(()=>{ const photo=!S.iconView||S.detailPhoto===it.id, real=Store.imgSrc(it), hasPhoto=real&&!it.drawn; // the same icon as the closet grid; tap to flip to the photo
-        return `<button type="button" class="tile detail-tile${photo?(it.keepBg?' full':''):' icon'}" data-act="detail-flip" data-id="${esc(it.id)}" aria-label="${photo?'Show the icon':'Show the photo'}"${S.iconView&&hasPhoto?'':' disabled'}><img src="${esc(photo?real:pieceImg(it))}" alt="${esc(it.name||'')}"></button>${S.iconView&&hasPhoto?`<p class="small muted" style="margin:6px 0 0;text-align:center">${photo?'Photo · tap for the icon':'Tap to see the photo'}</p>`:''}`; })()}
+        return `<button type="button" class="tile detail-tile${photo?(it.keepBg?' full':''):' icon'}" data-act="detail-flip" data-id="${esc(it.id)}" aria-label="${photo?'Show the icon':'Show the photo'}"${S.iconView&&hasPhoto?'':' disabled'}><img src="${esc(photo?real:pieceImg(it))}"${photo?'':icAttr(it)} alt="${esc(it.name||'')}"></button>${S.iconView&&hasPhoto?`<p class="small muted" style="margin:6px 0 0;text-align:center">${photo?'Photo · tap for the icon':'Tap to see the photo'}</p>`:''}`; })()}
       <div><div class="tagcard"><div class="cat">${esc([catLabel(it.category),it.subcategory].filter(Boolean).join(' · '))}</div><h3>${esc(it.name||'Untitled piece')}</h3>
         <div class="dots" style="margin-top:8px">${(it.colors||[]).map(c=>`<i style="background:${hexOK(c.hex)};width:16px;height:16px"></i>`).join('')}</div>
         <dl class="specs">${rows.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
@@ -2317,16 +2342,42 @@ Never recommend a near-duplicate of something they own.`, {modelTier:'default', 
 // The photo becomes a simple graphic: its cut-out outline, one flat color, and its texture or pattern redrawn as clean shapes.
 S.iconView = (()=>{ try{ return localStorage.getItem('dc-icon-view')!=='0'; }catch{ return true; } })();
 const BLANK='data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
-const ICONS=new Map(), iconPending=new Set(); let iconRAF=0;
+const ICONS=new Map(), iconPending=new Set(), iconQueue=[]; let iconRAF=0, iconBusy=false;
 const pieceImg = it => S.iconView ? iconSrc(it) : Store.imgSrc(it);
+const hash36 = s => { let h=7; for(let i=0;i<s.length;i++) h=h*31+s.charCodeAt(i)|0; return (h>>>0).toString(36); };
+// Icons are saved on the device, so a phone draws each one once, not on every open. The drawing code's own fingerprint is
+// part of the key: when the icon style changes, old icons quietly redraw.
+let ICON_VER=''; const iconVer=()=>ICON_VER||(ICON_VER=hash36([makeIcon,scanTexture,scanImage,shapeOf,genericShape,shapeDetails,drawIconPattern,drawnAccents].join('')+JSON.stringify(SHAPES)));
+const SAVED_ICONS=new Map(); let iconDB=null;
+const iconStore = mode => iconDB.then(db=>db?db.transaction('i',mode).objectStore('i'):null);
+const iconsReady = (()=>{ try{ iconDB=new Promise(res=>{ const r=indexedDB.open('dixon-icons',1); r.onupgradeneeded=()=>r.result.createObjectStore('i',{keyPath:'id'}); r.onsuccess=()=>res(r.result); r.onerror=()=>res(null); });
+  return iconStore('readonly').then(st=>st&&new Promise(res=>{ const q=st.getAll(); q.onsuccess=()=>{ (q.result||[]).forEach(e=>SAVED_ICONS.set(e.id,e)); res(); }; q.onerror=()=>res(); })).catch(()=>{}); }
+  catch{ iconDB=Promise.resolve(null); return Promise.resolve(); } })();
 function iconSrc(it){
-  const src=Store.imgSrc(it), key=[it.id,src.length,src.slice(-24),(it.colors||[]).map(c=>c.hex).join(),it.pattern,it.materialType,it.subcategory,it.style,it.category,it.name,it.desc,it.productImg,it.reference,it.sleeve,it.fit,(it.tags||[]).join()].join('|');
-  if(ICONS.has(key)) return ICONS.get(key);
-  if(!iconPending.has(key)){ iconPending.add(key);
-    makeIcon(it).catch(()=>src).then(u=>{ ICONS.set(key,u); iconPending.delete(key);
-      if(!iconRAF) iconRAF=requestAnimationFrame(()=>{ iconRAF=0; if(!S.iconView) return; if(sheetKind) refreshOpenSheet(); else render(); }); }); }
-  return ICONS.get('last:'+it.id) || BLANK;
+  const src=Store.imgSrc(it), key=hash36([iconVer(),src.length,src.slice(-24),(it.colors||[]).map(c=>c.hex).join(),it.pattern,it.materialType,it.subcategory,it.style,it.category,it.name,it.desc,it.notes,it.productImg,it.reference,it.sleeve,it.fit,it.keepBg,it.drawn,(it.tags||[]).join()].join('|'));
+  if(ICONS.get(it.id)?.k===key) return ICONS.get(it.id).url;
+  const saved=SAVED_ICONS.get(it.id); if(saved?.k===key){ ICONS.set(it.id,saved); return saved.url; }
+  if(!iconPending.has(it.id+key)){ iconPending.add(it.id+key); iconQueue.push({it,key}); pumpIcons(); }
+  return ICONS.get(it.id)?.url || saved?.url || BLANK; // the last icon stands in while the new one draws
 }
+// One icon at a time, between frames, so scrolling and taps stay smooth while they draw.
+async function pumpIcons(){
+  if(iconBusy) return; iconBusy=true; await iconsReady;
+  while(iconQueue.length){ const {it,key}=iconQueue.shift(); iconPending.delete(it.id+key);
+    const hit=SAVED_ICONS.get(it.id); let url, drew=false;
+    if(hit?.k===key) url=hit.url; else { url=await makeIcon(it).catch(()=>null); if(!url){ continue; } drew=true;
+      const e={id:it.id,k:key,url}; SAVED_ICONS.set(it.id,e); iconStore('readwrite').then(st=>st&&st.put(e)).catch(()=>{}); }
+    ICONS.set(it.id,{k:key,url}); showIcon(it.id,url);
+    if(drew) await new Promise(r=>(window.requestIdleCallback?requestIdleCallback(r,{timeout:120}):setTimeout(r,16))); }
+  iconBusy=false;
+}
+// A finished icon swaps straight into the pictures showing that piece; only when none are on screen does the view redraw.
+function showIcon(id,url){
+  if(!S.iconView) return; const imgs=document.querySelectorAll(`img[data-ic="${CSS.escape(id)}"]`);
+  if(imgs.length){ imgs.forEach(im=>{ if(im.src!==url) im.src=url; }); return; }
+  if(sheetKind && !iconRAF) iconRAF=requestAnimationFrame(()=>{ iconRAF=0; refreshOpenSheet(); });
+}
+const icAttr = it => S.iconView ? ` data-ic="${esc(it.id)}"` : '';
 // Which simple graphic stands in for the piece's surface: its pattern first, then what its fabric looks like.
 function iconPattern(it){
   let p=(it.pattern||'').toLowerCase();
@@ -2717,7 +2768,7 @@ async function makeIcon(it){
   o.shadowColor='rgba(0,0,0,.16)'; o.shadowBlur=8; o.shadowOffsetY=3;
   for(let a=0;a<8;a++) o.drawImage(L,Math.cos(a*Math.PI/4)*2.2,Math.sin(a*Math.PI/4)*2.2);
   o.shadowColor='transparent'; o.drawImage(F,0,0);
-  const url=O.toDataURL('image/png'); ICONS.set('last:'+it.id,url); return url;
+  return O.toDataURL('image/webp',.92); // webp with see-through edges where the browser can, png where it can't
 }
 
 /* ---------- Shop check: would a new piece work with the closet? ---------- */
@@ -3099,7 +3150,7 @@ function openBuilder({ids=[],name='',editingId=null}={}){
       <div><div id="b-board">${boardHTML(B.ids)}</div>
         <label class="field" style="margin-top:12px"><span>Outfit name</span><input id="b-name" value="${esc(B.name)}" placeholder="e.g. Friday at the office" autocomplete="off"></label></div>
       <div><div class="chips" role="group" aria-label="Category"><button class="chip" data-act="b-cat" data-v="all" aria-pressed="${B.cat==='all'}">All</button>${CATS.filter(([id])=>counts[id]).map(([id,l])=>`<button class="chip" data-act="b-cat" data-v="${id}" aria-pressed="${B.cat===id}">${l}</button>`).join('')}</div>
-        <div class="picker">${avail.map(i=>`<button class="pick" data-act="b-pick" data-id="${esc(i.id)}" aria-pressed="${B.ids.includes(i.id)}" title="${esc(i.name||'')}"><img src="${esc(pieceImg(i))}" alt="${esc(i.name||'')}"></button>`).join('')}</div></div>
+        <div class="picker">${avail.map(i=>`<button class="pick" data-act="b-pick" data-id="${esc(i.id)}" aria-pressed="${B.ids.includes(i.id)}" title="${esc(i.name||'')}"><img src="${esc(pieceImg(i))}"${icAttr(i)} alt="${esc(i.name||'')}" loading="lazy" decoding="async"></button>`).join('')}</div></div>
     </div></div>
     <div class="sheet-foot"><button class="btn left" data-act="shuffle-in">${icon('shuffle')}Shuffle</button><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="b-save" data-act="b-save"${S.usingSamples?' disabled title="Add your own pieces to save outfits"':''}>Save outfit</button></div>`;
     $('#b-name').addEventListener('input',e=>B.name=e.target.value);
@@ -3405,7 +3456,7 @@ document.addEventListener('wheel',e=>{ const c=e.target.closest?.('.chips'); if(
   c.scrollLeft+=e.deltaY; e.preventDefault(); },{passive:false});
 
 document.addEventListener('input',e=>{ const id=e.target.id;
-  if(id==='q'){ S.q=e.target.value; S._focusQ=true; render(); }
+  if(id==='q'){ S.q=e.target.value; searchResults(); }
   else if(id.startsWith('p-')) P[id.slice(2)]=e.target.value;
   else if(id.startsWith('f2-')) F[id.slice(3)]=e.target.value;
   else if(id==='rec-budget-amt'){ S.budgetAmt=e.target.value; queueBudgetSave(); } });
