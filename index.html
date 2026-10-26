@@ -1087,29 +1087,17 @@ function paletteGroups(items){
     return {hex,name:nm.name,fam:nm.fam,n:g.n,pct:Math.round(g.n/total*100),neutral:chroma<12,hue,L:g.lab[0]}; });
   // the same name twice (two greys that round to "Grey") becomes one
   const byName=new Map(); for(const g of out){ const e=byName.get(g.name); if(e){ e.n+=g.n; e.pct+=g.pct; } else byName.set(g.name,g); } out=[...byName.values()];
-  // keep the 8 biggest; tiny leftovers fold into the nearest kept color so percentages still add up
-  out.sort((a,b)=>b.n-a.n); const keep=out.slice(0,8), rest=out.slice(8);
-  for(const r of rest){ const near=keep.reduce((b,k)=>deltaE00(toLab(k.hex),toLab(r.hex))<deltaE00(toLab(b.hex),toLab(r.hex))?k:b,keep[0]); near.n+=r.n; near.pct+=r.pct; }
-  return smoothOrder(keep,toLab);
+  // every color stays (a 0% sliver still shows as 1%)
+  out.forEach(g=>{ g.pct=Math.max(1,g.pct); });
+  return smoothOrder(out,toLab);
 }
-// Dark to light along the smoothest path: tries every order (8 colors at most) and keeps the one where each step to the
-// next color is smallest, with going darker again costing extra, so the strip flows like one gradient.
+// Strictly dark to light; colors within a few shades of lightness swap places when that puts them next to a closer color.
 function smoothOrder(list,toLab){
-  if(list.length<3) return list.sort((a,b)=>a.L-b.L);
-  const labs=list.map(g=>toLab(g.hex)), n=list.length, step=(i,j)=>deltaE00(labs[i],labs[j])+Math.max(0,labs[i][0]-labs[j][0]);
-  const cost=list.map((_,i)=>list.map((_,j)=>step(i,j)));
-  const ids=[...list.keys()].sort((a,b)=>labs[a][0]-labs[b][0]), first=ids[0], last=ids[n-1], mid=ids.slice(1,-1);
-  let best=null, bestC=Infinity; const used=new Array(n).fill(false), path=[first];
-  (function walk(c){ if(c>=bestC) return; if(path.length===n-1){ const t=c+cost[path[path.length-1]][last]; if(t<bestC){ bestC=t; best=[...path,last]; } return; }
-    for(const k of mid) if(!used[k]){ used[k]=true; path.push(k); walk(c+cost[path[path.length-2]][k]); path.pop(); used[k]=false; } })(0);
-  return best.map(i=>list[i]);
-}
-// One soft gradient for the palette strip: each color holds its share, then blends into the next.
-function paletteGradient(groups){
-  const tot=groups.reduce((s,g)=>s+g.n,0)||1; let at=0; const stops=[];
-  groups.forEach((g,i)=>{ const w=g.n/tot*100, b=Math.min(w*.3,4), c=hexOK(g.hex);
-    stops.push(`${c} ${(i?at+b:0).toFixed(1)}%`, `${c} ${(i<groups.length-1?at+w-b:100).toFixed(1)}%`); at+=w; });
-  return `linear-gradient(90deg,${stops.join(',')})`;
+  const labs=new Map(list.map(g=>[g,toLab(g.hex)])), L=g=>labs.get(g)[0], d=(a,b)=>a&&b?deltaE00(labs.get(a),labs.get(b)):0;
+  const out=[...list].sort((a,b)=>L(a)-L(b));
+  for(let pass=0;pass<3;pass++) for(let i=0;i+1<out.length;i++){ const p=out[i-1], a=out[i], b=out[i+1], q=out[i+2];
+    if(Math.abs(L(a)-L(b))<6 && d(p,b)+d(a,q)<d(p,a)+d(b,q)){ out[i]=b; out[i+1]=a; } }
+  return out;
 }
 /* ----- Insights → Color combos: the pairing you wear most, proven pairings your closet can already make, and ones that fight ----- */
 // A piece's color as a stylist would name it (finer than the color family: navy isn't just blue, khaki isn't just brown).
@@ -1188,7 +1176,7 @@ function insightsHTML(){
   </div>
   <div class="panels">
     ${recsHTML()}
-    <div class="panel wide"><h3>Your palette</h3>${palArr.length?`<div class="palette" style="background:${paletteGradient(palG)}">${palArr.map(([nm,p])=>`<i style="flex:${p.n.toFixed(2)}" title="${esc(nm)} · ${p.pct}%"></i>`).join('')}</div>
+    <div class="panel wide"><h3>Your palette</h3>${palArr.length?`<div class="palette">${palArr.map(([nm,p])=>`<i style="flex:${p.n.toFixed(2)};background:${hexOK(p.hex)}" title="${esc(nm)} · ${p.pct}%"></i>`).join('')}</div>
       <div class="legend">${palArr.map(([nm,p])=>`<span><i class="swatch" style="background:${hexOK(p.hex)}"></i>${esc(nm)} <b class="pct">${p.pct}%</b></span>`).join('')}</div>`:'<p class="muted">Add pieces to see your palette.</p>'}</div>
     <div class="panel"><h3>By material</h3><div class="bars">${mats.map(([l,c])=>`<div class="bar"><span>${esc(l)}</span><span class="track"><span class="fill" style="display:block;width:${c/maxM*100}%"></span></span><span class="v">${c}</span></div>`).join('')||'<p class="muted" style="margin:0">Set a material on your pieces to see this.</p>'}</div></div>
     <div class="panel"><h3>By category</h3><div class="bars">${counts.map(([l,c])=>`<div class="bar"><span>${l}</span><span class="track"><span class="fill" style="display:block;width:${c/maxC*100}%"></span></span><span class="v">${c}</span></div>`).join('')||'<p class="muted">No pieces yet.</p>'}</div></div>

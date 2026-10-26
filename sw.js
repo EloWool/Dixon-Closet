@@ -1,6 +1,6 @@
 // Offline support: the app shell is cached on install; Google Fonts are cached as they load.
 // build-app.py stamps VERSION from the app's contents, so phones pick up each rebuild.
-const VERSION = 'dixon-closet-f67f4a400f';
+const VERSION = 'dixon-closet-df393aa9bd';
 const SHELL = [
   './', 'index.html', 'app-extras.js', 'app-sync.js', 'sync-config.js', 'manifest.webmanifest', 'vendor/anthropic.mjs', 'vendor/supabase.mjs',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'
