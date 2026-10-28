@@ -380,6 +380,17 @@ select option:disabled{color:#7A756E}
 
 /* Outfits */
 .ogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:28px 18px}
+/* Outfit grid size: small fits two looks across a phone, large gives each look the full width. */
+.ogrid[data-size="s"]{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:18px 12px}
+.ogrid[data-size="l"]{grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:34px 22px}
+.ogrid[data-size="s"] .ocard{gap:8px}
+.ogrid[data-size="s"] .card-name{font-size:13px;-webkit-line-clamp:1}
+.ogrid[data-size="s"] .card-foot{display:none}
+.ogrid[data-size="s"] .oc-share{width:30px;height:30px;padding:0;justify-content:center;font-size:0;gap:0;top:6px;right:6px}
+@media (max-width:420px){
+  .ogrid[data-size="s"]{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 8px}
+  .ogrid[data-size="l"]{grid-template-columns:minmax(0,1fr)}
+}
 .ocwrap{position:relative;min-width:0}.oc-share{position:absolute;top:10px;right:10px;z-index:2;height:34px;padding:0 12px;font-size:12px;gap:6px}.oc-share svg{width:15px;height:15px}
 .ocard{border:0;padding:0;background:none;text-align:left;display:flex;flex-direction:column;gap:12px;min-width:0}
 .board{background:var(--tile);border-radius:var(--r);aspect-ratio:1/1;max-width:100%;display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:6px;padding:12px;overflow:hidden;box-shadow:0 1px 0 var(--line),0 12px 30px rgba(10,24,16,.06)}
@@ -1059,7 +1070,7 @@ function closetHTML(){
   const activeFilters=(S.mat!=='all')+(S.fam!=='all');
   const mats={}; S.items.filter(i=>(S.cat==='all'||i.category===S.cat)&&i.materialType).forEach(i=>mats[i.materialType]=(mats[i.materialType]||0)+1);
   const list=filtered();
-  return `<div class="view-head"><div><h1>Closet</h1><p>${S.items.length} piece${S.items.length===1?'':'s'}${S.usingSamples?' (examples)':''}</p></div><div class="row" style="align-items:center"><span class="store-note">${esc(Store.note())}</span>${!S.usingSamples&&Store.downloads?'<button class="btn" data-act="backup">Download backup</button>':''}${!S.usingSamples&&!S.selecting?'<button class="btn" data-act="select-start">Select</button>':''}<div class="chips" role="group" aria-label="Show pieces as"><button class="chip" data-act="view-mode" data-v="icons" aria-pressed="${S.iconView}">Icons</button><button class="chip" data-act="view-mode" data-v="photos" aria-pressed="${!S.iconView}">Photos</button></div><div class="size-seg seg" role="group" aria-label="Grid size">${[['s','S','Small'],['m','M','Medium'],['l','L','Large']].map(([v,t,l])=>`<button data-act="grid-size" data-v="${v}" aria-pressed="${S.gridSize===v}" aria-label="${l} grid" title="${l}">${t}</button>`).join('')}</div></div></div>
+  return `<div class="view-head"><div><h1>Closet</h1><p>${S.items.length} piece${S.items.length===1?'':'s'}${S.usingSamples?' (examples)':''}</p></div><div class="row" style="align-items:center"><span class="store-note">${esc(Store.note())}</span>${!S.usingSamples&&Store.downloads?'<button class="btn" data-act="backup">Download backup</button>':''}${!S.usingSamples&&!S.selecting?'<button class="btn" data-act="select-start">Select</button>':''}<div class="chips" role="group" aria-label="Show pieces as"><button class="chip" data-act="view-mode" data-v="icons" aria-pressed="${S.iconView}">Icons</button><button class="chip" data-act="view-mode" data-v="photos" aria-pressed="${!S.iconView}">Photos</button></div>${sizeSeg('gridSize')}</div></div>
   ${S.selecting?`<div class="banner"><p><strong>${S.sel.size} selected</strong> Tap pieces to pick the ones to delete.</p><div class="row"><button class="btn ghost" data-act="select-all">Select all</button><button class="btn" data-act="select-cancel">Cancel</button><button class="btn danger" data-act="select-delete"${S.sel.size?'':' disabled'}>Delete ${S.sel.size||''}</button></div></div>`:''}
   ${sampleBanner()}
   <div class="filters">
@@ -1090,6 +1101,8 @@ function closetHTML(){
   </div>
   <div id="closet-results">${resultsHTML(list)}</div>`;
 }
+// S / M / L grid size buttons; key is the setting they change (closet: gridSize, outfits: outfitGrid).
+const sizeSeg = key => `<div class="size-seg seg" role="group" aria-label="Grid size">${[['s','S','Small'],['m','M','Medium'],['l','L','Large']].map(([v,t,l])=>`<button data-act="grid-size" data-for="${key}" data-v="${v}" aria-pressed="${S[key]===v}" aria-label="${l} grid" title="${l}">${t}</button>`).join('')}</div>`;
 const resultsHTML = list => list.length?`<div class="grid" data-size="${S.gridSize}">${list.map(cardHTML).join('')}</div>`:`<div class="empty"><h3>Nothing matches</h3><p>Try a different search or clear the filters.</p><button class="btn" data-act="clear-filters">Clear filters</button></div>`;
 // Typing in search redraws only the pieces, never the search box, so a phone keyboard stays open and steady.
 let searchT=0;
@@ -1113,10 +1126,10 @@ function boardHTML(ids){
 }
 function outfitsHTML(){
   return `<div class="view-head"><div><h1>Outfits</h1><p>${S.outfits.length} saved look${S.outfits.length===1?'':'s'}${S.usingSamples?' (example)':''}</p></div>
-    <div class="row">${!S.usingSamples&&S.items.filter(i=>i.lastWorn===today()).length>=2?`<button class="btn" data-act="save-today" title="Saves the pieces you logged as worn today">Save today’s look</button>`:''}<button class="btn" data-act="shuffle">${icon('shuffle')}Shuffle a look</button><button class="btn primary" data-act="new-outfit">${icon('plus')}New outfit</button></div></div>
+    <div class="row">${!S.usingSamples&&S.items.filter(i=>i.lastWorn===today()).length>=2?`<button class="btn" data-act="save-today" title="Saves the pieces you logged as worn today">Save today’s look</button>`:''}<button class="btn" data-act="shuffle">${icon('shuffle')}Shuffle a look</button><button class="btn primary" data-act="new-outfit">${icon('plus')}New outfit</button>${S.outfits.length?sizeSeg('outfitGrid'):''}</div></div>
   ${sampleBanner()}
   ${todayHTML()}
-  ${S.outfits.length?`<div class="ogrid">${S.outfits.map(o=>`<div class="ocwrap"><button class="ocard card" data-act="open-outfit" data-id="${esc(o.id)}">${boardHTML(o.itemIds||[])}
+  ${S.outfits.length?`<div class="ogrid" data-size="${S.outfitGrid}">${S.outfits.map(o=>`<div class="ocwrap"><button class="ocard card" data-act="open-outfit" data-id="${esc(o.id)}">${boardHTML(o.itemIds||[])}
     <div class="card-meta"><div class="card-name">${esc(o.name||'Untitled outfit')}</div><div class="card-foot"><span class="card-sub">${(o.itemIds||[]).length} pieces</span><span class="wears">${o.wears||0}× worn</span></div></div>${o.sample?'<span class="badge">Example</span>':''}</button>
     <button class="btn oc-share" data-act="share-outfit" data-id="${esc(o.id)}" aria-label="Share ${esc(o.name||'outfit')}">${icon('share')}Share</button></div>`).join('')}</div>`
   :`<div class="empty"><h3>No outfits yet</h3><p>Combine pieces from your closet into looks you can reach for on busy mornings.</p><button class="btn primary" data-act="new-outfit">Build your first outfit</button></div>`}`;
@@ -2495,6 +2508,7 @@ Never recommend a near-duplicate of something they own.`, {modelTier:'default', 
 
 /* ---------- Icons: a flat graphic of each piece, drawn from its own colors and patterns ---------- */
 // The photo becomes a simple graphic: its cut-out outline, one flat color, and its texture or pattern redrawn as clean shapes.
+S.outfitGrid = (()=>{ try{ return ['s','m','l'].includes(localStorage.getItem('dc-ogrid'))?localStorage.getItem('dc-ogrid'):'m'; }catch{ return 'm'; } })();
 S.gridSize = (()=>{ try{ return ['s','m','l'].includes(localStorage.getItem('dc-grid'))?localStorage.getItem('dc-grid'):'m'; }catch{ return 'm'; } })();
 S.iconView = (()=>{ try{ return localStorage.getItem('dc-icon-view')!=='0'; }catch{ return true; } })();
 const BLANK='data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
@@ -3525,7 +3539,7 @@ const ACT = {
   cat:t=>{ S.cat=t.dataset.v; S.sub='all'; S.status=''; render(); },
   'status-view':t=>{ S.status=S.status===t.dataset.v?'':t.dataset.v; render(); },
   sub:t=>{ S.sub=t.dataset.v; render(); },
-  'grid-size':t=>{ S.gridSize=t.dataset.v; try{ localStorage.setItem('dc-grid',S.gridSize); }catch{} render(); },
+  'grid-size':t=>{ const k=t.dataset.for==='outfitGrid'?'outfitGrid':'gridSize'; S[k]=t.dataset.v; try{ localStorage.setItem(k==='outfitGrid'?'dc-ogrid':'dc-grid',S[k]); }catch{} render(); },
   'view-mode':t=>{ S.iconView=t.dataset.v==='icons'; try{ localStorage.setItem('dc-icon-view',S.iconView?'1':'0'); localStorage.removeItem('dc-icon-style'); }catch{} render(); },
   'more-filters':()=>{ S.moreFilters=!S.moreFilters; render(); },
   'icon-view':t=>{ S.iconView=t.dataset.v==='1'; try{ localStorage.setItem('dixon.iconView',S.iconView?'1':'0'); }catch{} render(); },
