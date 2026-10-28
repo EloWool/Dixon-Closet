@@ -180,6 +180,21 @@ select.sel{border-radius:999px;padding:10px 16px;min-height:48px;font-weight:600
 /* Product grid */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:28px 18px}
 @media (max-width:420px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 10px}}
+/* Grid size (Closet): small fits more pieces with just their names; large shows each piece big. */
+.grid[data-size="s"]{grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:18px 12px}
+.grid[data-size="l"]{grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:34px 22px}
+.grid[data-size="s"] .card{gap:8px}
+.grid[data-size="s"] .card-name{font-size:13px;-webkit-line-clamp:1}
+.grid[data-size="s"] .card-sub,.grid[data-size="s"] .card-foot{display:none}
+.grid[data-size="s"] .badge{font-size:9px;padding:3px 6px}
+@media (max-width:420px){
+  .grid[data-size="s"]{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 8px}
+  .grid[data-size="l"]{grid-template-columns:minmax(0,1fr);gap:26px}
+  .grid[data-size="l"] .tile{aspect-ratio:1/1}
+}
+.size-seg{display:inline-flex;gap:2px;padding:3px;border-radius:999px}
+.size-seg button{min-width:34px;height:34px;border:0;border-radius:999px;background:none;color:var(--muted);font:700 13px var(--f-display);letter-spacing:.06em;padding:0 10px}
+.size-seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
 .card{position:relative;text-align:left;border:0;padding:0;background:none;display:flex;flex-direction:column;gap:12px;min-width:0}
 .tile{background:var(--tile);border-radius:var(--r);aspect-ratio:4/5;max-width:100%;display:grid;place-items:center;overflow:hidden;
   box-shadow:0 1px 0 var(--line),0 12px 30px rgba(30,20,6,.06);transition:transform .25s ease,box-shadow .25s ease}
@@ -1044,7 +1059,7 @@ function closetHTML(){
   const activeFilters=(S.mat!=='all')+(S.fam!=='all');
   const mats={}; S.items.filter(i=>(S.cat==='all'||i.category===S.cat)&&i.materialType).forEach(i=>mats[i.materialType]=(mats[i.materialType]||0)+1);
   const list=filtered();
-  return `<div class="view-head"><div><h1>Closet</h1><p>${S.items.length} piece${S.items.length===1?'':'s'}${S.usingSamples?' (examples)':''}</p></div><div class="row" style="align-items:center"><span class="store-note">${esc(Store.note())}</span>${!S.usingSamples&&Store.downloads?'<button class="btn" data-act="backup">Download backup</button>':''}${!S.usingSamples&&!S.selecting?'<button class="btn" data-act="select-start">Select</button>':''}<div class="chips" role="group" aria-label="Show pieces as"><button class="chip" data-act="view-mode" data-v="icons" aria-pressed="${S.iconView}">Icons</button><button class="chip" data-act="view-mode" data-v="photos" aria-pressed="${!S.iconView}">Photos</button></div></div></div>
+  return `<div class="view-head"><div><h1>Closet</h1><p>${S.items.length} piece${S.items.length===1?'':'s'}${S.usingSamples?' (examples)':''}</p></div><div class="row" style="align-items:center"><span class="store-note">${esc(Store.note())}</span>${!S.usingSamples&&Store.downloads?'<button class="btn" data-act="backup">Download backup</button>':''}${!S.usingSamples&&!S.selecting?'<button class="btn" data-act="select-start">Select</button>':''}<div class="chips" role="group" aria-label="Show pieces as"><button class="chip" data-act="view-mode" data-v="icons" aria-pressed="${S.iconView}">Icons</button><button class="chip" data-act="view-mode" data-v="photos" aria-pressed="${!S.iconView}">Photos</button></div><div class="size-seg seg" role="group" aria-label="Grid size">${[['s','S','Small'],['m','M','Medium'],['l','L','Large']].map(([v,t,l])=>`<button data-act="grid-size" data-v="${v}" aria-pressed="${S.gridSize===v}" aria-label="${l} grid" title="${l}">${t}</button>`).join('')}</div></div></div>
   ${S.selecting?`<div class="banner"><p><strong>${S.sel.size} selected</strong> Tap pieces to pick the ones to delete.</p><div class="row"><button class="btn ghost" data-act="select-all">Select all</button><button class="btn" data-act="select-cancel">Cancel</button><button class="btn danger" data-act="select-delete"${S.sel.size?'':' disabled'}>Delete ${S.sel.size||''}</button></div></div>`:''}
   ${sampleBanner()}
   <div class="filters">
@@ -1075,7 +1090,7 @@ function closetHTML(){
   </div>
   <div id="closet-results">${resultsHTML(list)}</div>`;
 }
-const resultsHTML = list => list.length?`<div class="grid">${list.map(cardHTML).join('')}</div>`:`<div class="empty"><h3>Nothing matches</h3><p>Try a different search or clear the filters.</p><button class="btn" data-act="clear-filters">Clear filters</button></div>`;
+const resultsHTML = list => list.length?`<div class="grid" data-size="${S.gridSize}">${list.map(cardHTML).join('')}</div>`:`<div class="empty"><h3>Nothing matches</h3><p>Try a different search or clear the filters.</p><button class="btn" data-act="clear-filters">Clear filters</button></div>`;
 // Typing in search redraws only the pieces, never the search box, so a phone keyboard stays open and steady.
 let searchT=0;
 function searchResults(){ clearTimeout(searchT); searchT=setTimeout(()=>{ const r=$('#closet-results'); if(r && S.view==='closet') r.innerHTML=resultsHTML(filtered()); else render(); },90); }
@@ -2480,6 +2495,7 @@ Never recommend a near-duplicate of something they own.`, {modelTier:'default', 
 
 /* ---------- Icons: a flat graphic of each piece, drawn from its own colors and patterns ---------- */
 // The photo becomes a simple graphic: its cut-out outline, one flat color, and its texture or pattern redrawn as clean shapes.
+S.gridSize = (()=>{ try{ return ['s','m','l'].includes(localStorage.getItem('dc-grid'))?localStorage.getItem('dc-grid'):'m'; }catch{ return 'm'; } })();
 S.iconView = (()=>{ try{ return localStorage.getItem('dc-icon-view')!=='0'; }catch{ return true; } })();
 const BLANK='data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 const ICONS=new Map(), iconPending=new Set(), iconQueue=[]; let iconRAF=0, iconBusy=false;
@@ -3509,6 +3525,7 @@ const ACT = {
   cat:t=>{ S.cat=t.dataset.v; S.sub='all'; S.status=''; render(); },
   'status-view':t=>{ S.status=S.status===t.dataset.v?'':t.dataset.v; render(); },
   sub:t=>{ S.sub=t.dataset.v; render(); },
+  'grid-size':t=>{ S.gridSize=t.dataset.v; try{ localStorage.setItem('dc-grid',S.gridSize); }catch{} render(); },
   'view-mode':t=>{ S.iconView=t.dataset.v==='icons'; try{ localStorage.setItem('dc-icon-view',S.iconView?'1':'0'); localStorage.removeItem('dc-icon-style'); }catch{} render(); },
   'more-filters':()=>{ S.moreFilters=!S.moreFilters; render(); },
   'icon-view':t=>{ S.iconView=t.dataset.v==='1'; try{ localStorage.setItem('dixon.iconView',S.iconView?'1':'0'); }catch{} render(); },
