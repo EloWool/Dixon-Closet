@@ -600,6 +600,67 @@ a.plink{color:var(--brand-text);font-weight:700;overflow-wrap:anywhere}
 .budget-amt{display:inline-flex;align-items:center;gap:6px}
 .budget-amt input{width:110px;min-height:44px;border-radius:999px;border:1px solid var(--line);background:var(--field);padding:8px 14px}
 .loading{padding:60px 0;text-align:center;color:var(--muted);font:700 15px var(--f-display);text-transform:uppercase;letter-spacing:.12em}
+
+/* ===================== Lautner closet: the whole app as a 1970s retro-futurist dressing room =====================
+   Warm walnut and travertine (Sheats-Goldstein / Chemosphere), burnt amber and brass, soft arches, a glowing globe
+   light, wide-set space-age lettering, and the 70s orange-mustard-brown stripe. Overrides the tokens above. */
+:root{
+  --bg:#EDE3D1; --surface:#F7F0E3; --tile:#F7F0E3; --ink:#2A1A10; --muted:#7A6450; --line:rgba(60,35,15,.14);
+  --accent:#3A2416; --accent-ink:#F7EBD8; --brand:#D9822B; --brand-ink:#1E0F05; --brand-text:#A8551A; --accent-soft:rgba(217,130,43,.16);
+  --tape:#E0A84A; --tape-ink:#1E0F05; --check:#E4D7C2;
+  --glass:rgba(247,240,227,.62); --glass-hi:rgba(250,245,236,.82); --glass-strong:rgba(247,240,227,.9);
+  --glass-border:rgba(200,161,90,.32); --glass-spec:rgba(255,248,236,.9); --glass-edge:rgba(60,35,15,.08); --glass-shadow:rgba(60,35,15,.16);
+  --field:rgba(255,250,242,.7); --brass:#C8A15A; --walnut:#3B2516; --amber-glow:255,190,110;
+  --f-display:"Archivo","Advercase","Barlow Condensed",Arial,sans-serif; --f-wide:"Archivo",Arial,sans-serif; --r:22px;
+  --stripes:0 3px 0 #D9822B,0 6px 0 #E0A84A,0 9px 0 #8A4B22;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#140C08; --surface:#24170E; --tile:#2A1B10; --ink:#F4E8D6; --muted:#C4AC8F; --line:rgba(255,220,170,.12);
+  --accent:#F0D9A8; --accent-ink:#20120A; --brand:#E39A3B; --brand-text:#F0B061; --accent-soft:rgba(227,154,59,.16); --check:#2E1E13;
+  --glass:rgba(42,27,16,.62); --glass-hi:rgba(58,38,22,.66); --glass-strong:rgba(36,23,14,.9);
+  --glass-border:rgba(200,161,90,.24); --glass-spec:rgba(255,226,180,.16); --glass-edge:rgba(0,0,0,.5); --glass-shadow:rgba(0,0,0,.5); --field:rgba(255,236,210,.06);
+} }
+:root[data-theme="dark"]{
+  --bg:#140C08; --surface:#24170E; --tile:#2A1B10; --ink:#F4E8D6; --muted:#C4AC8F; --line:rgba(255,220,170,.12);
+  --accent:#F0D9A8; --accent-ink:#20120A; --brand:#E39A3B; --brand-text:#F0B061; --accent-soft:rgba(227,154,59,.16); --check:#2E1E13;
+  --glass:rgba(42,27,16,.62); --glass-hi:rgba(58,38,22,.66); --glass-strong:rgba(36,23,14,.9);
+  --glass-border:rgba(200,161,90,.24); --glass-spec:rgba(255,226,180,.16); --glass-edge:rgba(0,0,0,.5); --glass-shadow:rgba(0,0,0,.5); --field:rgba(255,236,210,.06);
+}
+/* the room: a globe pendant's glow over travertine by day, walnut paneling by night */
+body{background:radial-gradient(70% 45% at 82% -6%,rgba(var(--amber-glow),.42),rgba(var(--amber-glow),0) 70%),
+  repeating-linear-gradient(0deg,rgba(120,90,60,.035) 0 1px,transparent 1px 7px),var(--bg)}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) body{background:radial-gradient(70% 45% at 82% -6%,rgba(var(--amber-glow),.28),rgba(var(--amber-glow),0) 70%),
+  repeating-linear-gradient(90deg,rgba(255,236,210,.02) 0 2px,transparent 2px 9px),repeating-linear-gradient(90deg,rgba(0,0,0,.18) 0 1px,transparent 1px 33px),var(--bg)} }
+:root[data-theme="dark"] body{background:radial-gradient(70% 45% at 82% -6%,rgba(var(--amber-glow),.28),rgba(var(--amber-glow),0) 70%),
+  repeating-linear-gradient(90deg,rgba(255,236,210,.02) 0 2px,transparent 2px 9px),repeating-linear-gradient(90deg,rgba(0,0,0,.18) 0 1px,transparent 1px 33px),var(--bg)}
+/* header and tab bar: walnut capsules with brass edges, the 70s stripes trailing under the header */
+.top-in,.tabbar{--ink:#F4E8D6;--muted:#C4AC8F;--accent:#F0D9A8;--accent-ink:#20120A;color:var(--ink);
+  background:linear-gradient(#45291a,#2c1a10)!important;border:1px solid rgba(200,161,90,.45)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+.top-in{box-shadow:inset 0 1px 0 rgba(255,226,180,.18),var(--stripes),0 18px 30px -12px rgba(40,20,8,.5)!important}
+.tabbar{box-shadow:inset 0 1px 0 rgba(255,226,180,.18),0 14px 30px -10px rgba(0,0,0,.55)!important}
+.top-in::after,.tabbar::after{opacity:.25}
+.tabbar .tab[aria-current="page"]{background:linear-gradient(#f1d79c,#c8a15a)!important;color:#20120A!important}
+/* space-age lettering for headlines */
+.view-head h1,h2{font-family:var(--f-wide);font-stretch:125%;font-weight:800;letter-spacing:.01em}
+.view-head h1{font-size:clamp(34px,7.4vw,70px);line-height:.95}
+h3{font-family:var(--f-wide);font-stretch:112%}
+/* controls: capsules, brass when on, amber for the main action */
+.chip[aria-pressed="true"],.size-seg button[aria-pressed="true"],.seg button[aria-pressed="true"]{background:linear-gradient(#f1d79c,#c8a15a);color:#20120A;border-color:transparent}
+.btn.primary,.fab{background:linear-gradient(#EBA24C,#C96F22);color:#1E0F05;border:0;box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 8px 18px -6px rgba(201,111,34,.6)}
+/* panels and sheets: soft arched corners and a brass hairline */
+.panel,.banner,.kpi,.finder{border-radius:28px;border-color:var(--glass-border)}
+.sheet{border-radius:32px 32px 0 0}
+/* outfits stand in arched display niches, lit from the top of the arch */
+.ocard .board{border-radius:150px 150px 20px 20px/90px 90px 20px 20px;background:radial-gradient(70% 45% at 50% 0,rgba(var(--amber-glow),.28),rgba(var(--amber-glow),0) 70%),linear-gradient(#24160d,#1a100a);
+  box-shadow:inset 0 0 0 1px rgba(200,161,90,.35),inset 0 12px 24px rgba(0,0,0,.45)}
+/* the closet's section signs: backlit lightboxes set into the wood, like a boutique's shelf signs */
+.closet .bay-plate{display:flex;align-items:baseline;justify-content:center;gap:10px;width:100%;margin:0 0 10px;padding:10px 14px;border-radius:5px;
+  font:800 clamp(15px,4.2vw,22px)/1 var(--f-wide);font-stretch:125%;letter-spacing:.04em;text-transform:uppercase;color:#D33A1F;
+  background:linear-gradient(#fffbf3,#f6e9d4);box-shadow:0 0 0 3px #3b2516,0 0 0 4px rgba(200,161,90,.5),0 0 22px 4px rgba(255,214,160,.45),inset 0 0 14px rgba(255,196,128,.45)}
+.closet .bay-plate .n{font:500 11px/1 var(--f-mono);letter-spacing:.08em;color:#8a5a3a;opacity:1}
+/* hangers sit right at the garment's shoulders */
+.closet .bay-hang .tile img{padding:5.5% 2% 0}
+.closet .bay-hang .tile::before{width:58%;max-width:120px}
 </style>
 
 </head>
@@ -1150,7 +1211,7 @@ function closetHTML(){
   const activeFilters=(S.mat!=='all')+(S.fam!=='all');
   const mats={}; S.items.filter(i=>(S.cat==='all'||i.category===S.cat)&&i.materialType).forEach(i=>mats[i.materialType]=(mats[i.materialType]||0)+1);
   const list=filtered();
-  return `<div class="view-head"><div><h1>Closet</h1><p>${S.items.length} piece${S.items.length===1?'':'s'}${S.usingSamples?' (examples)':''}</p></div><div class="row" style="align-items:center"><span class="store-note">${esc(Store.note())}</span>${!S.usingSamples&&Store.downloads?'<button class="btn" data-act="backup">Download backup</button>':''}${!S.usingSamples&&!S.selecting?'<button class="btn" data-act="select-start">Select</button>':''}<div class="chips" role="group" aria-label="Show pieces as"><button class="chip" data-act="view-mode" data-v="icons" aria-pressed="${S.iconView}">Icons</button><button class="chip" data-act="view-mode" data-v="photos" aria-pressed="${!S.iconView}">Photos</button></div>${sizeSeg('gridSize')}<button class="chip" data-act="wall-mode" aria-pressed="${S.wall}" title="Concept: one Pinterest-style wall of different-shaped cubbies">Wall (concept)</button></div></div>
+  return `<div class="view-head"><div><h1>Closet</h1><p>${S.items.length} piece${S.items.length===1?'':'s'}${S.usingSamples?' (examples)':''}</p></div><div class="row" style="align-items:center"><span class="store-note">${esc(Store.note())}</span>${!S.usingSamples&&Store.downloads?'<button class="btn" data-act="backup">Download backup</button>':''}${!S.usingSamples&&!S.selecting?'<button class="btn" data-act="select-start">Select</button>':''}<div class="chips" role="group" aria-label="Show pieces as"><button class="chip" data-act="view-mode" data-v="icons" aria-pressed="${S.iconView}">Icons</button><button class="chip" data-act="view-mode" data-v="photos" aria-pressed="${!S.iconView}">Photos</button></div>${sizeSeg('gridSize')}</div></div>
   ${S.selecting?`<div class="banner"><p><strong>${S.sel.size} selected</strong> Tap pieces to pick the ones to delete.</p><div class="row"><button class="btn ghost" data-act="select-all">Select all</button><button class="btn" data-act="select-cancel">Cancel</button><button class="btn danger" data-act="select-delete"${S.sel.size?'':' disabled'}>Delete ${S.sel.size||''}</button></div></div>`:''}
   ${sampleBanner()}
   <div class="filters">
@@ -1200,14 +1261,16 @@ const CUB_SHAPES = [['tall',i=>/Coats|Trench|Overcoat|Parka|Puffer$/i.test(i.sub
   ['low',i=>bayOf(i)==='shoes'],
   ['mid',()=>true]];
 const cubShape = it => CUB_SHAPES.find(([,test])=>test(it))[0];
-function wallHTML(list){
-  return `<div class="closet wall-mode"><div class="grid wall" data-size="${S.gridSize}">${list.map(it=>`<div class="cub bay-${bayOf(it)} cub-${cubShape(it)}">${cardHTML(it)}</div>`).join('')}</div></div>`;
-}
+// One cubby per piece, shaped by what it is.
+const cubHTML = it => `<div class="cub bay-${bayOf(it)} cub-${cubShape(it)}">${cardHTML(it)}</div>`;
+const wallOf = items => `<div class="grid wall" data-size="${S.gridSize}">${items.map(cubHTML).join('')}</div>`;
+// The closet is one wall of mixed pieces in different-shaped cubbies, like a Pinterest board. Sorting "By layer" puts
+// it into sections instead (hanging, shoe rack, shelves), each its own wall.
 function resultsHTML(list){
-  if(list.length && S.wall) return wallHTML(list);
   if(!list.length) return `<div class="empty"><h3>Nothing matches</h3><p>Try a different search or clear the filters.</p><button class="btn" data-act="clear-filters">Clear filters</button></div>`;
+  if(S.sort!=='layer') return `<div class="closet"><section class="bay"><span class="bay-plate">${esc(S.sub!=='all'?S.sub:S.cat!=='all'?catLabel(S.cat):'The closet')} <span class="n">${list.length}</span></span>${wallOf(list)}</section></div>`;
   const groups=new Map(BAYS.map(([k])=>[k,[]])); for(const it of list) groups.get(bayOf(it)).push(it);
-  return `<div class="closet">${BAYS.filter(([k])=>groups.get(k).length).map(([k,label])=>`<section class="bay bay-${k}" aria-label="${label}"><span class="bay-plate">${label} <span class="n">${groups.get(k).length}</span></span><div class="grid" data-size="${S.gridSize}">${groups.get(k).map(cardHTML).join('')}</div></section>`).join('')}</div>`;
+  return `<div class="closet">${BAYS.filter(([k])=>groups.get(k).length).map(([k,label])=>`<section class="bay" aria-label="${label}"><span class="bay-plate">${label} <span class="n">${groups.get(k).length}</span></span>${wallOf(groups.get(k))}</section>`).join('')}</div>`;
 }
 // Typing in search redraws only the pieces, never the search box, so a phone keyboard stays open and steady.
 let searchT=0;
@@ -2618,8 +2681,6 @@ const OLD_GRID = new Map([['s','5'],['m','3'],['l','1']]);
 const readGridSize = k => { try{ const v=localStorage.getItem(k); return OLD_GRID.get(v) || (['1','3','5'].includes(v)?v:'3'); }catch{ return '3'; } };
 S.outfitGrid = readGridSize('dc-ogrid');
 S.gridSize = readGridSize('dc-grid');
-// Concept switch: the closet as one Pinterest-style wall of different-shaped cubbies instead of bays.
-S.wall = (()=>{ try{ return localStorage.getItem('dc-wall')==='1'; }catch{ return false; } })();
 S.iconView = (()=>{ try{ return localStorage.getItem('dc-icon-view')!=='0'; }catch{ return true; } })();
 const BLANK='data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 const ICONS=new Map(), iconPending=new Set(), iconQueue=[]; let iconRAF=0, iconBusy=false;
@@ -3649,7 +3710,6 @@ const ACT = {
   cat:t=>{ S.cat=t.dataset.v; S.sub='all'; S.status=''; render(); },
   'status-view':t=>{ S.status=S.status===t.dataset.v?'':t.dataset.v; render(); },
   sub:t=>{ S.sub=t.dataset.v; render(); },
-  'wall-mode':()=>{ S.wall=!S.wall; try{ localStorage.setItem('dc-wall',S.wall?'1':'0'); }catch{} render(); },
   'grid-size':t=>{ const k=t.dataset.for==='outfitGrid'?'outfitGrid':'gridSize'; S[k]=GRID_SIZES.includes(t.dataset.v)?t.dataset.v:'3'; try{ localStorage.setItem(k==='outfitGrid'?'dc-ogrid':'dc-grid',S[k]); }catch{} render(); },
   'view-mode':t=>{ S.iconView=t.dataset.v==='icons'; try{ localStorage.setItem('dc-icon-view',S.iconView?'1':'0'); localStorage.removeItem('dc-icon-style'); }catch{} render(); },
   'more-filters':()=>{ S.moreFilters=!S.moreFilters; render(); },
