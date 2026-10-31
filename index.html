@@ -196,7 +196,8 @@ select.sel{border-radius:999px;padding:10px 16px;min-height:48px;font-weight:600
     repeating-linear-gradient(90deg,rgba(0,0,0,.10) 0 1px,transparent 1px 31px),
     linear-gradient(90deg,#2b1a10,#3a2416 28%,#2f1d12 61%,#3c2617);
   box-shadow:inset 0 0 0 1px rgba(255,220,170,.07),0 24px 48px -20px rgba(0,0,0,.45)}
-.bay{position:relative;padding:4px 0 0}
+.bay{position:relative;padding:4px 0 0;min-width:0} /* min-width:0 keeps every column inside its section */
+.closet{grid-template-columns:minmax(0,1fr)} .closet>*,.closet .wall{min-width:0;max-width:100%}
 .bay-plate{display:inline-flex;align-items:center;gap:6px;margin:0 0 8px 2px;padding:4px 8px;border-radius:5px;
   font:700 10px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:#2a1a0e;
   background:linear-gradient(#e6c98e,#b8904a);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 2px 5px rgba(0,0,0,.4)}
@@ -213,21 +214,17 @@ select.sel{border-radius:999px;padding:10px 16px;min-height:48px;font-weight:600
   box-shadow:inset 0 2px 0 rgb(255,222,176),inset 0 9px 14px -8px rgba(var(--led),.7),inset 0 0 0 1px rgba(0,0,0,.5),inset 0 -1px 0 rgba(255,220,170,.06)}
 .closet .card:focus-visible{outline-offset:-2px}
 .closet .tile{position:relative;overflow:visible;background:none;border-radius:0;box-shadow:none;aspect-ratio:1/.92;transition:none}
-.closet .tile img{object-position:50% 100%;filter:drop-shadow(0 6px 7px rgba(0,0,0,.45))}
-.closet .tile:is(.icon,.full) img,.closet .tile img{padding:8% 6% 4%}
+.closet .tile img{position:absolute;inset:0;width:100%;height:100%;object-position:50% 100%;filter:drop-shadow(0 6px 7px rgba(0,0,0,.45))}
+.closet .tile:is(.icon,.full) img,.closet .tile img{padding:8% 6% 0;transform:translateY(var(--drop,0px))} /* --drop seats it on the shelf (seatImg) */
 .closet .tile.full img{object-fit:cover;padding:0;border-radius:6px;filter:none;box-shadow:0 6px 12px rgba(0,0,0,.45)}
 /* the cubby's shelf the piece stands on */
 .closet .tile::after{content:"";position:absolute;left:-6px;right:-6px;bottom:-3px;height:7px;pointer-events:none;
   background:linear-gradient(var(--wood-hi),var(--wood) 55%,var(--wood-lo));box-shadow:inset 0 1px 0 rgba(255,226,180,.28),0 4px 6px rgba(0,0,0,.45)}
 /* hanging cubbies: a brass rail and a hanger instead of a shelf; the piece hangs from the top */
-.closet .bay-hang .tile{aspect-ratio:4/4.6}
-.closet .bay-hang .tile img{object-position:50% 0;padding:13% 2% 0}
-.closet .bay-hang .tile::after{top:3px;bottom:auto;left:-2px;right:-2px;height:4px;border-radius:2px;background:linear-gradient(#f1d79c,var(--brass) 50%,#7d5f2a);box-shadow:0 2px 3px rgba(0,0,0,.5)}
-.closet .bay-hang .tile::before{content:"";position:absolute;z-index:1;left:50%;top:0;width:44%;max-width:70px;aspect-ratio:3/1;transform:translateX(-50%);pointer-events:none;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 20'%3E%3Cpath d='M30 7c0-3 2-4 2-5.5S31 0 30 0s-2 .7-2 1.6' fill='none' stroke='%23c8a15a' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M30 7 4 18h52Z' fill='none' stroke='%239a6c3c' stroke-width='2.4' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat 50% 0/100% auto}
 /* shoe cubbies are low */
 .closet .bay-shoes .tile{aspect-ratio:4/2.7}
-.closet .bay-shoes .tile img{padding:3% 4% 2%}
+.closet .bay-shoes .tile img{padding:3% 4% 0}
 .closet .card-meta{position:relative;padding:8px 2px 0}
 .closet .card-name{font-size:13px;color:var(--c-ink)}
 .closet .card-sub,.closet .wears{color:var(--c-muted)}
@@ -241,8 +238,8 @@ select.sel{border-radius:999px;padding:10px 16px;min-height:48px;font-weight:600
 .closet .grid[data-size="1"] .card{padding:10px 10px 12px}
 .closet .grid[data-size="1"] .tile::after{left:-10px;right:-10px}
 .closet .grid[data-size="1"] .card-name{font-size:16px}
-@media (hover:hover){ .closet .card:hover .tile{transform:none;box-shadow:none} .closet .tile img{transition:transform .3s ease} .closet .card:hover .tile img{transform:translateY(-3px)} }
-.closet .card:active .tile{transform:none} .closet .card:active .tile img{transform:scale(.96)}
+@media (hover:hover){ .closet .card:hover .tile{transform:none;box-shadow:none} .closet .tile img{transition:transform .3s ease} .closet .card:hover .tile img{transform:translateY(calc(var(--drop,0px) - 3px))} }
+.closet .card:active .tile{transform:none} .closet .card:active .tile img{transform:translateY(var(--drop,0px)) scale(.96)}
 .closet .card.selected{box-shadow:inset 0 0 0 2px var(--brass),inset 0 2px 0 rgb(255,222,176)}
 @media (max-width:420px){ .closet .grid[data-size="3"] .card-sub{display:none} .closet .grid[data-size="3"] .card-name{font-size:11px;-webkit-line-clamp:1} }
 /* Wall concept: one masonry wall (columns filled top to bottom), each cubby shaped by its piece */
@@ -477,7 +474,8 @@ select option:disabled{color:#7A756E}
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}
 @media (max-width:759px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .kpi{border-radius:22px;padding:16px 18px}
-.kpi b{display:block;font:800 40px/1 var(--f-display);font-variant-numeric:tabular-nums;margin-bottom:6px}
+.kpi b{display:block;font:800 clamp(22px,6.2vw,40px)/1 var(--f-display);font-variant-numeric:tabular-nums;margin-bottom:6px;white-space:nowrap;letter-spacing:-.02em} /* sized to fit "$2,106.27" in half a phone */
+.kpi{min-width:0;overflow:hidden}
 .kpi small{font:500 10px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 @media (max-width:759px){.panels{grid-template-columns:minmax(0,1fr)}}
@@ -659,8 +657,6 @@ h3{font-family:var(--f-wide);font-stretch:112%}
   background:linear-gradient(#fffbf3,#f6e9d4);box-shadow:0 0 0 3px #3b2516,0 0 0 4px rgba(200,161,90,.5),0 0 22px 4px rgba(255,214,160,.45),inset 0 0 14px rgba(255,196,128,.45)}
 .closet .bay-plate .n{font:500 11px/1 var(--f-mono);letter-spacing:.08em;color:#8a5a3a;opacity:1}
 /* hangers sit right at the garment's shoulders */
-.closet .bay-hang .tile img{padding:5.5% 2% 0}
-.closet .bay-hang .tile::before{width:58%;max-width:120px}
 </style>
 
 </head>
@@ -1172,6 +1168,24 @@ const findItem = id => id==='prospect' ? P.item : S.items.find(i=>i.id===id);
 const findOutfit = id => S.outfits.find(o=>o.id===id);
 
 /* ---------- Rendering ---------- */
+// Pieces stand on their shelf: each picture is lowered by its own empty bottom margin, measured once from its lowest
+// visible (non-transparent) pixel, so a shoe's sole or a sweater's hem rests on the wood instead of floating above it.
+const SEAT=new Map();
+function seatImg(img){
+  if(!img.closest('.closet') || !img.complete || !img.naturalWidth) return;
+  if(img.closest('.tile.full')){ img.style.removeProperty('--drop'); return; } // photos with their own background fill the cubby
+  const src=img.currentSrc||img.src; let f=SEAT.get(src);
+  if(f==null){ try{ const w=Math.min(160,img.naturalWidth), h=Math.max(1,Math.round(img.naturalHeight*w/img.naturalWidth)), c=document.createElement('canvas'); c.width=w; c.height=h;
+      const x=c.getContext('2d',{willReadFrequently:true}); x.drawImage(img,0,0,w,h); const d=x.getImageData(0,0,w,h).data; let last=-1;
+      for(let y=h-1;y>=0&&last<0;y--) for(let i=y*w*4+3,e=i+w*4;i<e;i+=4) if(d[i]>40){ last=y; break; }
+      f=last<0?0:(h-1-last)/h; }catch{ f=0; } // a picture from another site can't be measured; it stays as is
+    if(SEAT.size>800) SEAT.clear(); SEAT.set(src,f); }
+  const cs=getComputedStyle(img), cw=img.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight), ch=img.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom);
+  const scale=Math.min(cw/img.naturalWidth,ch/img.naturalHeight); img.style.setProperty('--drop',Math.max(0,f*img.naturalHeight*scale-3).toFixed(1)+'px');
+}
+const seatAll = () => document.querySelectorAll('.closet .tile img').forEach(seatImg);
+document.addEventListener('load',e=>{ if(e.target.tagName==='IMG') seatImg(e.target); },true);
+let seatT=0; addEventListener('resize',()=>{ clearTimeout(seatT); seatT=setTimeout(seatAll,150); });
 function render(){
   document.querySelectorAll('[data-act="view"]').forEach(b=>b.setAttribute('aria-current', b.dataset.view===S.view?'page':'false'));
   const m=$('#main');
@@ -1179,6 +1193,7 @@ function render(){
   hideSplash();
   m.innerHTML = S.view==='closet' ? closetHTML() : S.view==='outfits' ? outfitsHTML() : S.view==='shop' ? shopHTML() : insightsHTML();
   const fab=$('.fab'); if(fab) fab.hidden = S.view==='shop';
+  if(S.view==='closet') requestAnimationFrame(seatAll);
   if(S.view==='outfits' && WX.place && !WX.busy) loadWeather();
   const q=$('#q'); if(q && S._focusQ){ q.focus(); q.setSelectionRange(q.value.length,q.value.length); S._focusQ=false; }
 }
@@ -1274,7 +1289,7 @@ function resultsHTML(list){
 }
 // Typing in search redraws only the pieces, never the search box, so a phone keyboard stays open and steady.
 let searchT=0;
-function searchResults(){ clearTimeout(searchT); searchT=setTimeout(()=>{ const r=$('#closet-results'); if(r && S.view==='closet') r.innerHTML=resultsHTML(filtered()); else render(); },90); }
+function searchResults(){ clearTimeout(searchT); searchT=setTimeout(()=>{ const r=$('#closet-results'); if(r && S.view==='closet'){ r.innerHTML=resultsHTML(filtered()); requestAnimationFrame(seatAll); } else render(); },90); }
 const LAYER_SUBS = ['Sweaters','Cardigans','Turtlenecks','Hoodies','Zip hoodies','Sweatshirts','Quarter-zips','Vests','Overshirts & flannels'];
 const isLayer = i => i.category==='layers' || (i.category==='tops' && LAYER_SUBS.includes(i.subcategory));
 const SLOT_OF = c => ({outerwear:'outer',layers:'outer',suits:'outer',tops:'top',active:'top',bottoms:'bottom',shoes:'shoes',accessories:'acc'}[c]||'acc');
