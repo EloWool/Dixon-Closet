@@ -180,21 +180,89 @@ select.sel{border-radius:999px;padding:10px 16px;min-height:48px;font-weight:600
 /* Product grid */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:28px 18px}
 @media (max-width:420px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 10px}}
-/* Grid size (Closet): small fits more pieces with just their names; large shows each piece big. */
-.grid[data-size="s"]{grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:18px 12px}
-.grid[data-size="l"]{grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:34px 22px}
-.grid[data-size="s"] .card{gap:8px}
-.grid[data-size="s"] .card-name{font-size:13px;-webkit-line-clamp:1}
-.grid[data-size="s"] .card-sub,.grid[data-size="s"] .card-foot{display:none}
-.grid[data-size="s"] .badge{font-size:9px;padding:3px 6px}
-@media (max-width:420px){
-  .grid[data-size="s"]{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 8px}
-  .grid[data-size="l"]{grid-template-columns:minmax(0,1fr);gap:26px}
-  .grid[data-size="l"] .tile{aspect-ratio:1/1}
-}
+/* Grid size buttons: little square glyphs for 1, 3 or 5 per row. */
 .size-seg{display:inline-flex;gap:2px;padding:3px;border-radius:999px}
-.size-seg button{min-width:34px;height:34px;border:0;border-radius:999px;background:none;color:var(--muted);font:700 13px var(--f-display);letter-spacing:.06em;padding:0 10px}
+.size-seg button{width:36px;height:34px;border:0;border-radius:999px;background:none;color:var(--muted);padding:0;display:grid;place-items:center}
+.size-seg button svg{width:16px;height:16px;fill:currentColor}
 .size-seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+
+/* ---------- The closet: a walnut wall of compact bays, and every piece in its own lit cubby, like a boutique.
+   Tops and jackets hang from a little brass rail, folded pieces and hats sit on a shelf, shoes on a low shelf, so the
+   cubbies aren't uniform. All CSS gradients (nothing to download), same colors in light and dark mode. ---------- */
+.closet{--wood-hi:#5c3b22;--wood:#3b2516;--wood-lo:#24160d;--brass:#c8a15a;--led:255,196,128;--c-ink:#f4e8d6;--c-muted:#c4ac8f;
+  display:grid;gap:12px;padding:10px;border-radius:18px;color:var(--c-ink);
+  background:
+    repeating-linear-gradient(90deg,rgba(255,236,210,.022) 0 2px,transparent 2px 9px),
+    repeating-linear-gradient(90deg,rgba(0,0,0,.10) 0 1px,transparent 1px 31px),
+    linear-gradient(90deg,#2b1a10,#3a2416 28%,#2f1d12 61%,#3c2617);
+  box-shadow:inset 0 0 0 1px rgba(255,220,170,.07),0 24px 48px -20px rgba(0,0,0,.45)}
+.bay{position:relative;padding:4px 0 0}
+.bay-plate{display:inline-flex;align-items:center;gap:6px;margin:0 0 8px 2px;padding:4px 8px;border-radius:5px;
+  font:700 10px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:#2a1a0e;
+  background:linear-gradient(#e6c98e,#b8904a);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 2px 5px rgba(0,0,0,.4)}
+.bay-plate .n{opacity:.85}
+.closet .grid{gap:8px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.closet .grid[data-size="1"]{grid-template-columns:minmax(0,1fr);max-width:420px;margin-inline:auto;width:100%}
+.closet .grid[data-size="5"]{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+/* the cubby: a dark recess with its own LED strip along the top edge */
+.closet .card{gap:0;padding:6px 6px 7px;border-radius:9px;color:var(--c-ink);
+  background:
+    radial-gradient(80% 55% at 50% 0,rgba(var(--led),.24),rgba(var(--led),0) 70%),
+    repeating-linear-gradient(90deg,rgba(255,236,210,.02) 0 2px,transparent 2px 10px),
+    linear-gradient(#1a100a,#22150d 50%,#1c120b);
+  box-shadow:inset 0 2px 0 rgb(255,222,176),inset 0 9px 14px -8px rgba(var(--led),.7),inset 0 0 0 1px rgba(0,0,0,.5),inset 0 -1px 0 rgba(255,220,170,.06)}
+.closet .card:focus-visible{outline-offset:-2px}
+.closet .tile{position:relative;overflow:visible;background:none;border-radius:0;box-shadow:none;aspect-ratio:1/.92;transition:none}
+.closet .tile img{object-position:50% 100%;filter:drop-shadow(0 6px 7px rgba(0,0,0,.45))}
+.closet .tile:is(.icon,.full) img,.closet .tile img{padding:8% 6% 4%}
+.closet .tile.full img{object-fit:cover;padding:0;border-radius:6px;filter:none;box-shadow:0 6px 12px rgba(0,0,0,.45)}
+/* the cubby's shelf the piece stands on */
+.closet .tile::after{content:"";position:absolute;left:-6px;right:-6px;bottom:-3px;height:7px;pointer-events:none;
+  background:linear-gradient(var(--wood-hi),var(--wood) 55%,var(--wood-lo));box-shadow:inset 0 1px 0 rgba(255,226,180,.28),0 4px 6px rgba(0,0,0,.45)}
+/* hanging cubbies: a brass rail and a hanger instead of a shelf; the piece hangs from the top */
+.closet .bay-hang .tile{aspect-ratio:4/4.6}
+.closet .bay-hang .tile img{object-position:50% 0;padding:13% 2% 0}
+.closet .bay-hang .tile::after{top:3px;bottom:auto;left:-2px;right:-2px;height:4px;border-radius:2px;background:linear-gradient(#f1d79c,var(--brass) 50%,#7d5f2a);box-shadow:0 2px 3px rgba(0,0,0,.5)}
+.closet .bay-hang .tile::before{content:"";position:absolute;z-index:1;left:50%;top:0;width:44%;max-width:70px;aspect-ratio:3/1;transform:translateX(-50%);pointer-events:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 20'%3E%3Cpath d='M30 7c0-3 2-4 2-5.5S31 0 30 0s-2 .7-2 1.6' fill='none' stroke='%23c8a15a' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M30 7 4 18h52Z' fill='none' stroke='%239a6c3c' stroke-width='2.4' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat 50% 0/100% auto}
+/* shoe cubbies are low */
+.closet .bay-shoes .tile{aspect-ratio:4/2.7}
+.closet .bay-shoes .tile img{padding:3% 4% 2%}
+.closet .card-meta{position:relative;padding:8px 2px 0}
+.closet .card-name{font-size:13px;color:var(--c-ink)}
+.closet .card-sub,.closet .wears{color:var(--c-muted)}
+.closet .card-sub{font-size:11px}
+.closet .badge{display:none} /* the banner above already says these are examples */
+.closet .grid[data-size="3"] .card-foot,.closet .grid[data-size="5"] :is(.card-sub,.card-foot){display:none}
+.closet .grid[data-size="5"] .card{padding:4px 4px 5px;border-radius:7px}
+.closet .grid[data-size="5"] .tile::after{left:-4px;right:-4px}
+.closet .grid[data-size="5"] .card-meta{padding-top:5px}
+.closet .grid[data-size="5"] .card-name{font-size:10px;-webkit-line-clamp:1;text-align:center}
+.closet .grid[data-size="1"] .card{padding:10px 10px 12px}
+.closet .grid[data-size="1"] .tile::after{left:-10px;right:-10px}
+.closet .grid[data-size="1"] .card-name{font-size:16px}
+@media (hover:hover){ .closet .card:hover .tile{transform:none;box-shadow:none} .closet .tile img{transition:transform .3s ease} .closet .card:hover .tile img{transform:translateY(-3px)} }
+.closet .card:active .tile{transform:none} .closet .card:active .tile img{transform:scale(.96)}
+.closet .card.selected{box-shadow:inset 0 0 0 2px var(--brass),inset 0 2px 0 rgb(255,222,176)}
+@media (max-width:420px){ .closet .grid[data-size="3"] .card-sub{display:none} .closet .grid[data-size="3"] .card-name{font-size:11px;-webkit-line-clamp:1} }
+/* Wall concept: one masonry wall (columns filled top to bottom), each cubby shaped by its piece */
+.closet .grid.wall{display:block;column-count:3;column-gap:8px}
+.closet .grid.wall[data-size="1"]{column-count:1}
+.closet .grid.wall[data-size="5"]{column-count:5;column-gap:6px}
+.closet .wall .cub{break-inside:avoid;margin-bottom:8px}
+.closet .wall[data-size="5"] .cub{margin-bottom:6px}
+.closet .wall .cub>.card{display:flex;width:100%;content-visibility:visible} /* skipping off-screen cards breaks column layout */
+.closet .cub.cub-tall .tile{aspect-ratio:4/6}
+.closet .cub.cub-mid .tile{aspect-ratio:4/4.6}
+.closet .cub.cub-short .tile{aspect-ratio:4/3.1}
+.closet .cub.cub-low .tile{aspect-ratio:4/2.5}
+/* phones: lighter shadows keep scrolling smooth, and the space held for unseen cubbies matches their real size */
+@media (pointer:coarse),(max-width:720px){
+  .closet .tile img{filter:none} .closet .tile::after{box-shadow:inset 0 1px 0 rgba(255,226,180,.28)} .closet{box-shadow:none}
+  .closet .grid[data-size="1"] .card{contain-intrinsic-size:auto 400px}
+  .closet .grid[data-size="3"] .card{contain-intrinsic-size:auto 150px}
+  .closet .grid[data-size="5"] .card{contain-intrinsic-size:auto 90px}
+}
 .card{position:relative;text-align:left;border:0;padding:0;background:none;display:flex;flex-direction:column;gap:12px;min-width:0}
 .tile{background:var(--tile);border-radius:var(--r);aspect-ratio:4/5;max-width:100%;display:grid;place-items:center;overflow:hidden;
   box-shadow:0 1px 0 var(--line),0 12px 30px rgba(30,20,6,.06);transition:transform .25s ease,box-shadow .25s ease}
@@ -380,17 +448,15 @@ select option:disabled{color:#7A756E}
 
 /* Outfits */
 .ogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:28px 18px}
-/* Outfit grid size: small fits two looks across a phone, large gives each look the full width. */
-.ogrid[data-size="s"]{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:18px 12px}
-.ogrid[data-size="l"]{grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:34px 22px}
-.ogrid[data-size="s"] .ocard{gap:8px}
-.ogrid[data-size="s"] .card-name{font-size:13px;-webkit-line-clamp:1}
-.ogrid[data-size="s"] .card-foot{display:none}
-.ogrid[data-size="s"] .oc-share{width:30px;height:30px;padding:0;justify-content:center;font-size:0;gap:0;top:6px;right:6px}
-@media (max-width:420px){
-  .ogrid[data-size="s"]{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 8px}
-  .ogrid[data-size="l"]{grid-template-columns:minmax(0,1fr)}
-}
+/* Outfit grid size: 1, 3 or 5 looks per row; the smaller two drop the details and shrink Share to its icon. */
+.ogrid[data-size="1"]{grid-template-columns:minmax(0,1fr);max-width:620px;margin-inline:auto}
+.ogrid[data-size="3"]{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 12px}
+.ogrid[data-size="5"]{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px 8px}
+.ogrid:is([data-size="3"],[data-size="5"]) .ocard{gap:8px}
+.ogrid:is([data-size="3"],[data-size="5"]) .card-name{font-size:12px;-webkit-line-clamp:1}
+.ogrid:is([data-size="3"],[data-size="5"]) .card-foot{display:none}
+.ogrid:is([data-size="3"],[data-size="5"]) .oc-share{width:28px;height:28px;padding:0;justify-content:center;font-size:0;gap:0;top:4px;right:4px}
+.ogrid[data-size="5"] .badge{font-size:8px;padding:3px 5px;top:4px;left:4px}
 .ocwrap{position:relative;min-width:0}.oc-share{position:absolute;top:10px;right:10px;z-index:2;height:34px;padding:0 12px;font-size:12px;gap:6px}.oc-share svg{width:15px;height:15px}
 .ocard{border:0;padding:0;background:none;text-align:left;display:flex;flex-direction:column;gap:12px;min-width:0}
 .board{background:var(--tile);border-radius:var(--r);aspect-ratio:1/1;max-width:100%;display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:6px;padding:12px;overflow:hidden;box-shadow:0 1px 0 var(--line),0 12px 30px rgba(10,24,16,.06)}
@@ -1084,7 +1150,7 @@ function closetHTML(){
   const activeFilters=(S.mat!=='all')+(S.fam!=='all');
   const mats={}; S.items.filter(i=>(S.cat==='all'||i.category===S.cat)&&i.materialType).forEach(i=>mats[i.materialType]=(mats[i.materialType]||0)+1);
   const list=filtered();
-  return `<div class="view-head"><div><h1>Closet</h1><p>${S.items.length} piece${S.items.length===1?'':'s'}${S.usingSamples?' (examples)':''}</p></div><div class="row" style="align-items:center"><span class="store-note">${esc(Store.note())}</span>${!S.usingSamples&&Store.downloads?'<button class="btn" data-act="backup">Download backup</button>':''}${!S.usingSamples&&!S.selecting?'<button class="btn" data-act="select-start">Select</button>':''}<div class="chips" role="group" aria-label="Show pieces as"><button class="chip" data-act="view-mode" data-v="icons" aria-pressed="${S.iconView}">Icons</button><button class="chip" data-act="view-mode" data-v="photos" aria-pressed="${!S.iconView}">Photos</button></div>${sizeSeg('gridSize')}</div></div>
+  return `<div class="view-head"><div><h1>Closet</h1><p>${S.items.length} piece${S.items.length===1?'':'s'}${S.usingSamples?' (examples)':''}</p></div><div class="row" style="align-items:center"><span class="store-note">${esc(Store.note())}</span>${!S.usingSamples&&Store.downloads?'<button class="btn" data-act="backup">Download backup</button>':''}${!S.usingSamples&&!S.selecting?'<button class="btn" data-act="select-start">Select</button>':''}<div class="chips" role="group" aria-label="Show pieces as"><button class="chip" data-act="view-mode" data-v="icons" aria-pressed="${S.iconView}">Icons</button><button class="chip" data-act="view-mode" data-v="photos" aria-pressed="${!S.iconView}">Photos</button></div>${sizeSeg('gridSize')}<button class="chip" data-act="wall-mode" aria-pressed="${S.wall}" title="Concept: one Pinterest-style wall of different-shaped cubbies">Wall (concept)</button></div></div>
   ${S.selecting?`<div class="banner"><p><strong>${S.sel.size} selected</strong> Tap pieces to pick the ones to delete.</p><div class="row"><button class="btn ghost" data-act="select-all">Select all</button><button class="btn" data-act="select-cancel">Cancel</button><button class="btn danger" data-act="select-delete"${S.sel.size?'':' disabled'}>Delete ${S.sel.size||''}</button></div></div>`:''}
   ${sampleBanner()}
   <div class="filters">
@@ -1115,9 +1181,34 @@ function closetHTML(){
   </div>
   <div id="closet-results">${resultsHTML(list)}</div>`;
 }
-// S / M / L grid size buttons; key is the setting they change (closet: gridSize, outfits: outfitGrid).
-const sizeSeg = key => `<div class="size-seg seg" role="group" aria-label="Grid size">${[['s','S','Small'],['m','M','Medium'],['l','L','Large']].map(([v,t,l])=>`<button data-act="grid-size" data-for="${key}" data-v="${v}" aria-pressed="${S[key]===v}" aria-label="${l} grid" title="${l}">${t}</button>`).join('')}</div>`;
-const resultsHTML = list => list.length?`<div class="grid" data-size="${S.gridSize}">${list.map(cardHTML).join('')}</div>`:`<div class="empty"><h3>Nothing matches</h3><p>Try a different search or clear the filters.</p><button class="btn" data-act="clear-filters">Clear filters</button></div>`;
+// Grid size buttons drawn as little squares: one big square, a 3×3 and a 5×5. key is the setting they change
+// (closet: gridSize, outfits: outfitGrid); the value is how many pieces sit side by side.
+const GRID_SIZES = ['1','3','5'];
+const squaresSVG = n => { const gap=n===1?0:n===3?1.6:1, s=(16-gap*(n-1))/n; let r='';
+  for(let y=0;y<n;y++) for(let x=0;x<n;x++) r+=`<rect x="${(x*(s+gap)).toFixed(2)}" y="${(y*(s+gap)).toFixed(2)}" width="${s.toFixed(2)}" height="${s.toFixed(2)}" rx="${n===1?2.5:.6}"/>`;
+  return `<svg viewBox="0 0 16 16" aria-hidden="true">${r}</svg>`; };
+const sizeSeg = key => `<div class="size-seg seg" role="group" aria-label="Pieces per row">${GRID_SIZES.map(v=>`<button data-act="grid-size" data-for="${key}" data-v="${v}" aria-pressed="${S[key]===v}" aria-label="${v} per row" title="${v} per row">${squaresSVG(+v)}</button>`).join('')}</div>`;
+// The closet's bays: what hangs, what sits folded on a shelf, and the shoe rack. Pieces keep the chosen sort inside each bay.
+const BAYS = [['hang','Hanging',i=>['tops','outerwear','layers','suits','active'].includes(i.category)&&!(i.category==='suits'&&/shoe|tie/i.test(i.subcategory||''))],
+  ['shoes','Shoe rack',i=>i.category==='shoes'||(i.category==='suits'&&/shoe/i.test(i.subcategory||''))],
+  ['shelf','Shelves',()=>true]];
+function bayOf(it){ return BAYS.find(([,,test])=>test(it))[0]; }
+// Wall concept: each cubby's shape follows the piece, like a Pinterest board. Long coats and pants get tall cubbies,
+// tops a medium hanging one, hats and small things short ones, shoes the lowest; columns fill top to bottom.
+const CUB_SHAPES = [['tall',i=>/Coats|Trench|Overcoat|Parka|Puffer$/i.test(i.subcategory||'')||(i.category==='bottoms'&&!/Shorts|Jorts|Swim/i.test(i.subcategory||''))],
+  ['short',i=>i.category==='accessories'||/Shorts|Jorts|Swim/i.test(i.subcategory||'')],
+  ['low',i=>bayOf(i)==='shoes'],
+  ['mid',()=>true]];
+const cubShape = it => CUB_SHAPES.find(([,test])=>test(it))[0];
+function wallHTML(list){
+  return `<div class="closet wall-mode"><div class="grid wall" data-size="${S.gridSize}">${list.map(it=>`<div class="cub bay-${bayOf(it)} cub-${cubShape(it)}">${cardHTML(it)}</div>`).join('')}</div></div>`;
+}
+function resultsHTML(list){
+  if(list.length && S.wall) return wallHTML(list);
+  if(!list.length) return `<div class="empty"><h3>Nothing matches</h3><p>Try a different search or clear the filters.</p><button class="btn" data-act="clear-filters">Clear filters</button></div>`;
+  const groups=new Map(BAYS.map(([k])=>[k,[]])); for(const it of list) groups.get(bayOf(it)).push(it);
+  return `<div class="closet">${BAYS.filter(([k])=>groups.get(k).length).map(([k,label])=>`<section class="bay bay-${k}" aria-label="${label}"><span class="bay-plate">${label} <span class="n">${groups.get(k).length}</span></span><div class="grid" data-size="${S.gridSize}">${groups.get(k).map(cardHTML).join('')}</div></section>`).join('')}</div>`;
+}
 // Typing in search redraws only the pieces, never the search box, so a phone keyboard stays open and steady.
 let searchT=0;
 function searchResults(){ clearTimeout(searchT); searchT=setTimeout(()=>{ const r=$('#closet-results'); if(r && S.view==='closet') r.innerHTML=resultsHTML(filtered()); else render(); },90); }
@@ -2522,8 +2613,13 @@ Never recommend a near-duplicate of something they own.`, {modelTier:'default', 
 
 /* ---------- Icons: a flat graphic of each piece, drawn from its own colors and patterns ---------- */
 // The photo becomes a simple graphic: its cut-out outline, one flat color, and its texture or pattern redrawn as clean shapes.
-S.outfitGrid = (()=>{ try{ return ['s','m','l'].includes(localStorage.getItem('dc-ogrid'))?localStorage.getItem('dc-ogrid'):'m'; }catch{ return 'm'; } })();
-S.gridSize = (()=>{ try{ return ['s','m','l'].includes(localStorage.getItem('dc-grid'))?localStorage.getItem('dc-grid'):'m'; }catch{ return 'm'; } })();
+// Pieces per row (1, 3 or 5); older saved S / M / L choices carry over as 5 / 3 / 1.
+const OLD_GRID = new Map([['s','5'],['m','3'],['l','1']]);
+const readGridSize = k => { try{ const v=localStorage.getItem(k); return OLD_GRID.get(v) || (['1','3','5'].includes(v)?v:'3'); }catch{ return '3'; } };
+S.outfitGrid = readGridSize('dc-ogrid');
+S.gridSize = readGridSize('dc-grid');
+// Concept switch: the closet as one Pinterest-style wall of different-shaped cubbies instead of bays.
+S.wall = (()=>{ try{ return localStorage.getItem('dc-wall')==='1'; }catch{ return false; } })();
 S.iconView = (()=>{ try{ return localStorage.getItem('dc-icon-view')!=='0'; }catch{ return true; } })();
 const BLANK='data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 const ICONS=new Map(), iconPending=new Set(), iconQueue=[]; let iconRAF=0, iconBusy=false;
@@ -3553,7 +3649,8 @@ const ACT = {
   cat:t=>{ S.cat=t.dataset.v; S.sub='all'; S.status=''; render(); },
   'status-view':t=>{ S.status=S.status===t.dataset.v?'':t.dataset.v; render(); },
   sub:t=>{ S.sub=t.dataset.v; render(); },
-  'grid-size':t=>{ const k=t.dataset.for==='outfitGrid'?'outfitGrid':'gridSize'; S[k]=t.dataset.v; try{ localStorage.setItem(k==='outfitGrid'?'dc-ogrid':'dc-grid',S[k]); }catch{} render(); },
+  'wall-mode':()=>{ S.wall=!S.wall; try{ localStorage.setItem('dc-wall',S.wall?'1':'0'); }catch{} render(); },
+  'grid-size':t=>{ const k=t.dataset.for==='outfitGrid'?'outfitGrid':'gridSize'; S[k]=GRID_SIZES.includes(t.dataset.v)?t.dataset.v:'3'; try{ localStorage.setItem(k==='outfitGrid'?'dc-ogrid':'dc-grid',S[k]); }catch{} render(); },
   'view-mode':t=>{ S.iconView=t.dataset.v==='icons'; try{ localStorage.setItem('dc-icon-view',S.iconView?'1':'0'); localStorage.removeItem('dc-icon-style'); }catch{} render(); },
   'more-filters':()=>{ S.moreFilters=!S.moreFilters; render(); },
   'icon-view':t=>{ S.iconView=t.dataset.v==='1'; try{ localStorage.setItem('dixon.iconView',S.iconView?'1':'0'); }catch{} render(); },
