@@ -850,11 +850,17 @@ const PROVIDERS = {
   gemini:{ label:'Gemini (Google)', model:'gemini-2.0-flash', hint:'AIza…', site:'aistudio.google.com' },
   grok:{ label:'Grok (xAI)', model:'grok-4', hint:'xai-…', site:'console.x.ai' },
 };
-const AI = { sample:null, images:false, webFetch:false, provider:'anthropic', key:'', model:'',
-  load(){ let c={}; try{ c=JSON.parse(localStorage.getItem('dixon.ai')||'{}'); const old=localStorage.getItem('hangtag.claudeKey'); if(!c.key && old) c={provider:'anthropic',key:old}; }catch{} this.set(c,false); },
+// Built-in AI (Dixon AI): open-source models (Gemma 4, Qwen fallback) run for signed-in admins through the closet's own
+// server function ("dixon-ai" in Supabase), on hosts that keep no data, at a fraction of a cent per request. Your own AI account or key
+// is only used if you choose it in Settings.
+const builtinOn = () => !AI.useOwn && typeof Sync!=='undefined' && !!(Sync.client && Sync.user && Sync.isAdmin);
+const AI = { sample:null, images:false, webFetch:false, provider:'anthropic', key:'', model:'', useOwn:false,
+  refresh(){ this.set({provider:this.provider,key:this.key,model:this.model},false); },
+  get viaKimi(){ return builtinOn(); },
+  load(){ let c={}; try{ this.useOwn=localStorage.getItem('dixon.ai.own')==='1'; c=JSON.parse(localStorage.getItem('dixon.ai')||'{}'); const old=localStorage.getItem('hangtag.claudeKey'); if(!c.key && old) c={provider:'anthropic',key:old}; }catch{} this.set(c,false); },
   set(c={},save=true){ this.provider=PROVIDERS[c.provider]?c.provider:'anthropic'; this.key=(c.key||'').trim(); this.model=(c.model||'').trim();
     if(save){ try{ this.key?localStorage.setItem('dixon.ai',JSON.stringify({provider:this.provider,key:this.key,model:this.model})):localStorage.removeItem('dixon.ai'); localStorage.removeItem('hangtag.claudeKey'); }catch{} }
-    this.sample=this.key?{ json:(p,o)=>callAI(p,o) }:null; this.images=!!this.key; this.webFetch=!!this.key && (this.provider==='anthropic'||this.provider==='openrouter'); },
+    const on=builtinOn()||!!this.key; this.sample=on?{ json:(p,o)=>callAI(p,o) }:null; this.images=on; this.webFetch=builtinOn() || (!!this.key && (this.provider==='anthropic'||this.provider==='openrouter')); },
   get modelId(){ return this.model || PROVIDERS[this.provider].model; },
 };
 let anthropicClient=null, anthropicKey='';
@@ -872,14 +878,22 @@ async function imageData(blob){
 }
 const httpCode = (s,msg='') => s===401||s===403?'bad_key' : s===429?'rate_limited' : s===404?'bad_model' : s===413?'image_rejected' : /credit|billing|quota/i.test(msg)?'billing' : 'upstream_error';
 async function callAI(prompt,opts={}){
-  if(!AI.key) throw { code:'no_key' };
+  if(!builtinOn() && !AI.key) throw { code:'no_key' };
   const imgs=[]; for(const b of [].concat(opts.images||[])) imgs.push(await imageData(b));
   const text=prompt+'\n\nReply with the JSON only.';
+  if(builtinOn()) return callKimi(text,imgs,opts);
   if(AI.provider==='openrouter') return callOpenRouter(text,imgs,opts);
   if(AI.provider==='openai') return callOpenAI(text,imgs,'https://api.openai.com/v1/chat/completions');
   if(AI.provider==='grok') return callOpenAI(text,imgs,'https://api.x.ai/v1/chat/completions'); // xAI uses the same request shape
   if(AI.provider==='gemini') return callGemini(text,imgs);
   return callClaude(text,imgs,opts);
+}
+// Dixon AI through the closet's server function: it checks you're signed in as an admin, then asks the model on a no-retention host.
+async function callKimi(text,imgs,opts={}){
+  const { data, error } = await Sync.client.functions.invoke('dixon-ai',{ body:{ text, images:imgs, webFetch:!!opts.webFetch, tier:opts.modelTier||'default' } });
+  if(error){ const st=error.context?.status, j=await error.context?.json?.().catch(()=>null);
+    throw { code: j?.error==='not_configured'?'kimi_setup' : j?.error==='not_allowed'||st===403?'kimi_not_allowed' : st===401?'kimi_signin' : st===402?'billing' : st===429?'rate_limited' : 'upstream_error', message:j?.message }; }
+  return parseLoose(data?.text||'');
 }
 async function callOpenAI(text,imgs,endpoint){
   const r=await fetch(endpoint,{ method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer '+AI.key },
@@ -1766,7 +1780,7 @@ function readForm(){
 }
 function setAI(state,msg){ const el=$('#ai'); if(!el) return; el.hidden=false; el.dataset.state=state;
   el.innerHTML = (state==='busy'?`<svg class="spin"><use href="#i-loader"/></svg>`:icon('spark'))+`<span>${esc(msg)}</span>`; }
-function aiError(e,fallback){ return ({no_key:'Sign in to your AI account in Settings to use this.',bad_key:'Your AI sign-in was rejected or expired. Sign in again in Settings.',bad_model:'That model isn’t available on your AI account. Change it in Settings.',billing:'Your AI account is out of credit. Add credit on openrouter.ai, or in your AI provider’s account.',not_granted:'Claude wasn’t allowed for this page, so fill in the details yourself.',rate_limited:'Claude is busy right now. Try again in a minute.',invalid_json:'Claude’s answer didn’t come back in a usable form. Try again.',refused:'Claude couldn’t describe this image.',image_rejected:'That image couldn’t be sent to Claude.'})[e?.code] || fallback || 'Claude couldn’t look at this piece right now. You can fill in the details yourself.'; }
+function aiError(e,fallback){ return ({kimi_setup:'Dixon AI isn’t switched on yet: its OpenRouter key hasn’t been added to the server.',kimi_not_allowed:'The built-in AI is only for this closet’s owner account.',kimi_signin:'Sign in to your closet again to use the built-in AI.',no_key:'Sign in to your AI account in Settings to use this.',bad_key:'Your AI sign-in was rejected or expired. Sign in again in Settings.',bad_model:'That model isn’t available on your AI account. Change it in Settings.',billing:'Your AI account is out of credit. Add credit on openrouter.ai, or in your AI provider’s account.',not_granted:'Claude wasn’t allowed for this page, so fill in the details yourself.',rate_limited:'Claude is busy right now. Try again in a minute.',invalid_json:'Claude’s answer didn’t come back in a usable form. Try again.',refused:'Claude couldn’t describe this image.',image_rejected:'That image couldn’t be sent to Claude.'})[e?.code] || fallback || 'Claude couldn’t look at this piece right now. You can fill in the details yourself.'; }
 const FITS=['Skinny','Slim','Tapered','Regular','Straight','Relaxed','Boxy','Oversized','Wide','Baggy'];
 // Construction styles from Dixon Atelier's garment builder: necklines, closures, pockets, hems and soles, per category.
 const STYLES={

@@ -95,6 +95,10 @@ async function drawSettings(){
       <p class="small muted">A backup is one file with every piece, photo, outfit and recommendation. Restore it on a new phone to move your closet.</p>
     </section>
     <section><h3>AI features</h3>
+      ${Sync.user&&Sync.isAdmin?`<div class="banner" style="margin:0 0 12px"><p><strong>Built-in AI: Dixon AI${AI.viaKimi?'':' (off)'}.</strong> ${AI.viaKimi
+        ?'Auto-fill, photo recognition, label scanning, exact-item search, Shop check and recommendations run on Dixon AI, built for this app on open-source models (Gemma 4) and focused on fashion and keeping your closet’s records. It runs privately on hosts that keep no data and never train on it, and costs a fraction of a cent per use.'
+        :'You’re using your own AI account below instead.'}</p>
+        <label class="switch" style="margin-top:8px"><input type="checkbox" id="set-use-own" ${AI.useOwn?'checked':''}> Use my own AI account instead</label></div>`:''}
       ${AI.key&&AI.provider==='openrouter'
         ? `<p class="small">Signed in to your AI account. Auto-fill, label scanning, exact-item matching, Shop check and recommendations are on, and it can look up live listings on the web.</p>
            <div class="form" style="margin-top:10px"><label class="field full"><span>Model (optional)</span><input id="set-model" autocomplete="off" spellcheck="false" placeholder="Automatic: picks the best AI for each task" value="${esc(AI.model)}"></label></div>
@@ -201,7 +205,8 @@ Object.assign(ACT,{
   'take-photo':()=>{ const f=$('#camera-file'); f.value=''; f.click(); },
 });
 // Switching the AI service redraws the hints for that service and clears the key field.
-document.addEventListener('change',e=>{ if(e.target.id==='set-provider'){ setDraft={provider:e.target.value, model:''}; drawSettings(); } });
+document.addEventListener('change',e=>{ if(e.target.id==='set-provider'){ setDraft={provider:e.target.value, model:''}; drawSettings(); }
+  if(e.target.id==='set-use-own'){ AI.useOwn=e.target.checked; try{ localStorage.setItem('dixon.ai.own',AI.useOwn?'1':'0'); }catch{} AI.refresh(); render(); drawSettings(); } });
 $('#backup-file').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) importBackup(f); });
 $('#camera-file').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f) return;
   if(!Add){ startAdd(f); return; } if(Add.editingId) Add.identified=true; loadPhoto(f); });

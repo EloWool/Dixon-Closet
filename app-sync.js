@@ -59,10 +59,11 @@ const Sync = {
     }
     if(u && u.id !== was){ this.syncNow(); this.checkAdmin(); }
     if(!u) this.isAdmin = false;
-    render(); if(sheetKind === 'settings') drawSettings();
+    AI.refresh(); render(); if(sheetKind === 'settings') drawSettings();
   },
   async checkAdmin(){
     try{ const { data } = await this.client.rpc('is_app_admin'); this.isAdmin = data === true; }catch{ this.isAdmin = false; }
+    AI.refresh(); render(); // the owner's account turns on the built-in AI (Kimi)
     if(sheetKind === 'settings') drawSettings();
   },
   // Admins only (enforced by the database): give a friend who forgot their password a new one.
