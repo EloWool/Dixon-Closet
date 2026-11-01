@@ -154,7 +154,8 @@ main{padding-block:28px 150px}
 /* Filters */
 .filters{display:flex;flex-direction:column;gap:10px;margin-bottom:24px}
 .filter-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.search{flex:1 1 240px;min-width:0;display:flex;align-items:center;gap:10px;border-radius:999px;padding:0 18px;min-height:48px}
+.search{flex:1 1 240px;min-width:0;display:flex;align-items:center;gap:10px;border-radius:999px;padding:0 6px 0 18px;min-height:48px}
+.search-cam{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:inherit;opacity:.8}.search-cam:hover{opacity:1;background:color-mix(in srgb,currentColor 8%,transparent)}.search-cam svg{width:20px;height:20px}
 .search svg{width:18px;height:18px;color:var(--muted);flex:none}
 .search input{border:0;background:none;outline:none;flex:1;min-width:0;padding:10px 0;font-size:16px}
 select.sel{border-radius:999px;padding:10px 16px;min-height:48px;font-weight:600}
@@ -281,6 +282,7 @@ select.sel{border-radius:999px;padding:10px 16px;min-height:48px;font-weight:600
 .badge{position:absolute;top:10px;left:10px;background:var(--tape);color:var(--tape-ink);font:800 12px/1 var(--f-display);letter-spacing:.1em;text-transform:uppercase;padding:6px 9px;border-radius:999px}
 
 .banner{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;border-radius:24px;padding:18px 20px;margin-bottom:24px}
+.banner.lr{align-items:flex-start}.banner.lr .checks{max-height:45vh;overflow:auto;overflow-wrap:anywhere;margin:8px 0 0}.banner.lr summary{cursor:pointer;font-weight:600}
 .banner p{margin:0;max-width:62ch}
 .banner strong{font:800 18px var(--f-display);text-transform:uppercase;letter-spacing:.04em;margin-right:4px}
 .empty{text-align:center;color:var(--muted);padding:64px 16px;border:1px dashed var(--line);border-radius:24px}
@@ -717,6 +719,7 @@ h3{font-family:var(--f-wide);font-stretch:112%}
 <input type="file" id="label-file" accept="image/*" hidden>
 <input type="file" id="camera-file" accept="image/*" capture="environment" hidden>
 <input type="file" id="backup-file" accept="application/json,.json" hidden>
+<input type="file" id="find-file" accept="image/*" hidden>
 
 <script>
 /* ---------- Constants ---------- */
@@ -869,7 +872,32 @@ function extractColors(data,alpha,n){
   const byName={};
   for(const c of cl){ const hex=rgb2hex(...lab2rgb(...c.lab)); const nm=nameColor(hex); const e=byName[nm.name];
     if(e) e.n+=c.n; else byName[nm.name]={hex,name:nm.name,fam:nm.fam,n:c.n}; }
-  return Object.values(byName).sort((a,b)=>b.n-a.n).map(c=>({hex:c.hex,name:c.name,fam:c.fam,pct:Math.round(c.n/m*100)})).filter((c,i)=>i===0||c.pct>=6).slice(0,4);
+  // Up to 3 colors: the main one, any color covering 6%+, and smaller ones that clearly stand apart from the main color
+  // (a chest graphic, a stripe, a logo, camo patches), which cover little but are what make the piece multi-colored.
+  // A small patch only counts when its hue or color strength differs; one that is just darker or lighter is a shadow, fold or edge.
+  const all=Object.values(byName).sort((a,b)=>b.n-a.n).map(c=>({hex:c.hex,name:c.name,fam:c.fam,pct:Math.round(c.n/m*100),lab:hexLab(c.hex)}));
+  const main=all[0];
+  return all.filter((c,i)=>i===0 || c.pct>=6 || (c.pct>=2 && deltaE00(main.lab,c.lab,4)>=22)).slice(0,MAX_COLORS).map(({lab,...c})=>c);
+}
+const MAX_COLORS=3;
+const hexLab = hex => { const o=new Float32Array(3); rgb2lab(parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16),o,0); return [o[0],o[1],o[2]]; };
+// A saved piece's colors measured again from its photo (for pieces saved before multi-color reading).
+async function photoColors(it){
+  const src=photoOf(it); if(!src) return [];
+  const img=await loadImg(src), N=128, c=document.createElement('canvas'); c.width=c.height=N; const x=c.getContext('2d',{willReadFrequently:true});
+  const k=Math.min(N/img.naturalWidth,N/img.naturalHeight); x.drawImage(img,(N-img.naturalWidth*k)/2,(N-img.naturalHeight*k)/2,img.naturalWidth*k,img.naturalHeight*k);
+  const px=x.getImageData(0,0,N,N).data, a=new Uint8Array(N*N); for(let i=0;i<N*N;i++) a[i]=it.keepBg?255:px[i*4+3];
+  return extractColors(Array.isArray(it.wb)&&it.wb.length===3?applyGains(px,N*N,it.wb):px,a,N*N); // the same light correction as when it was saved
+}
+// Colors to add to a piece: its own colors stay first; distinct ones from its photo fill in up to 3.
+async function colorChanges(it){
+  if(it.drawn || (it.colors||[]).length>=MAX_COLORS || it.keepBg) return null;
+  const now=it.colors||[], found=await photoColors(it).catch(()=>[]);
+  // A new color must differ in hue or color strength from every color already there (a darker shade is a shadow),
+  // and a near-black needs to cover a real part of the piece (a black graphic, not the cut-out's shaded folds).
+  const extra=found.filter(c=>{ const L=hexLab(c.hex); return now.every(o=>deltaE00(hexLab(o.hex),L,4)>=22) && (L[0]>=28 || (c.pct||0)>=15); });
+  if(!extra.length) return null;
+  return [...now,...extra].slice(0,MAX_COLORS);
 }
 
 /* ---------- Example pieces (shown only while the closet is empty) ---------- */
@@ -967,6 +995,7 @@ const Linked = {
 
 /* ---------- Storage: @lbowker's synced closet on claude.ai, else your account (db + assets), else this browser ---------- */
 const PROVIDERS = {
+  local:{ label:'My computer (free, private)', model:'gemma3:12b', hint:'http://127.0.0.1:11434', site:'ollama.com', local:true },
   openrouter:{ label:'AI account (OpenRouter)', model:'openrouter/auto', hint:'sk-or-…', site:'openrouter.ai/settings/keys', login:true },
   anthropic:{ label:'Claude (Anthropic)', model:'claude-opus-5-5', hint:'sk-ant-…', site:'console.anthropic.com' },
   openai:{ label:'ChatGPT (OpenAI)', model:'gpt-4o', hint:'sk-…', site:'platform.openai.com' },
@@ -982,8 +1011,8 @@ const AI = { sample:null, images:false, webFetch:false, provider:'anthropic', ke
   get viaKimi(){ return builtinOn(); },
   load(){ let c={}; try{ this.useOwn=localStorage.getItem('dixon.ai.own')==='1'; c=JSON.parse(localStorage.getItem('dixon.ai')||'{}'); const old=localStorage.getItem('hangtag.claudeKey'); if(!c.key && old) c={provider:'anthropic',key:old}; }catch{} this.set(c,false); },
   set(c={},save=true){ this.provider=PROVIDERS[c.provider]?c.provider:'anthropic'; this.key=(c.key||'').trim(); this.model=(c.model||'').trim();
-    if(save){ try{ this.key?localStorage.setItem('dixon.ai',JSON.stringify({provider:this.provider,key:this.key,model:this.model})):localStorage.removeItem('dixon.ai'); localStorage.removeItem('hangtag.claudeKey'); }catch{} }
-    const on=builtinOn()||!!this.key; this.sample=on?{ json:(p,o)=>callAI(p,o) }:null; this.images=on; this.webFetch=builtinOn() || (!!this.key && (this.provider==='anthropic'||this.provider==='openrouter')); },
+    if(save){ try{ (this.key||this.provider==='local')?localStorage.setItem('dixon.ai',JSON.stringify({provider:this.provider,key:this.key,model:this.model})):localStorage.removeItem('dixon.ai'); localStorage.removeItem('hangtag.claudeKey'); }catch{} }
+    const on=builtinOn()||!!this.key||this.provider==='local'; this.sample=on?{ json:(p,o)=>callAI(p,o) }:null; this.images=on; this.webFetch=builtinOn() || (!!this.key && (this.provider==='anthropic'||this.provider==='openrouter')); },
   get modelId(){ return this.model || PROVIDERS[this.provider].model; },
 };
 let anthropicClient=null, anthropicKey='';
@@ -1001,10 +1030,11 @@ async function imageData(blob){
 }
 const httpCode = (s,msg='') => s===401||s===403?'bad_key' : s===429?'rate_limited' : s===404?'bad_model' : s===413?'image_rejected' : /credit|billing|quota/i.test(msg)?'billing' : 'upstream_error';
 async function callAI(prompt,opts={}){
-  if(!builtinOn() && !AI.key) throw { code:'no_key' };
+  if(!builtinOn() && !AI.key && AI.provider!=='local') throw { code:'no_key' };
   const imgs=[]; for(const b of [].concat(opts.images||[])) imgs.push(await imageData(b));
   const text=prompt+'\n\nReply with the JSON only.';
   if(builtinOn()) return callKimi(text,imgs,opts);
+  if(AI.provider==='local') return callLocal(text,imgs);
   if(AI.provider==='openrouter') return callOpenRouter(text,imgs,opts);
   if(AI.provider==='openai') return callOpenAI(text,imgs,'https://api.openai.com/v1/chat/completions');
   if(AI.provider==='grok') return callOpenAI(text,imgs,'https://api.x.ai/v1/chat/completions'); // xAI uses the same request shape
@@ -1017,6 +1047,18 @@ async function callKimi(text,imgs,opts={}){
   if(error){ const st=error.context?.status, j=await error.context?.json?.().catch(()=>null);
     throw { code: j?.error==='not_configured'?'kimi_setup' : j?.error==='not_allowed'||st===403?'kimi_not_allowed' : st===401?'kimi_signin' : st===402?'billing' : st===429?'rate_limited' : 'upstream_error', message:j?.message }; }
   return parseLoose(data?.text||'');
+}
+// Dixon AI on your own computer: Ollama runs an open-source model (Gemma 3, which reads photos) on your PC, so nothing leaves
+// your home and nothing is billed. The "key" field holds the computer's address; Ollama must allow this app (OLLAMA_ORIGINS).
+async function callLocal(text,imgs){
+  const base=(AI.key||PROVIDERS.local.hint).replace(/\/+$/,'');
+  const r=await fetch(base+'/v1/chat/completions',{ method:'POST', headers:{ 'Content-Type':'application/json' },
+    body:JSON.stringify({ model:AI.modelId, response_format:{ type:'json_object' }, temperature:0.2,
+      messages:[{ role:'user', content:[{ type:'text', text }, ...imgs.map(i=>({ type:'image_url', image_url:{ url:`data:${i.media_type};base64,${i.data}` } }))] }] }) })
+    .catch(()=>{ throw { code:'local_offline' }; });
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw { code:/not found/i.test(j?.error?.message||'')?'bad_model':httpCode(r.status,j?.error?.message), message:j?.error?.message };
+  return parseLoose(j.choices?.[0]?.message?.content||'');
 }
 async function callOpenAI(text,imgs,endpoint){
   const r=await fetch(endpoint,{ method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer '+AI.key },
@@ -1147,7 +1189,9 @@ const Store = {
 
 /* ---------- App state ---------- */
 const S = { view:'closet', q:'', cat:'all', sub:'all', mat:'all', fam:'all', sort:'new', items:[], outfits:[], usingSamples:false, recFocus:'gaps', recBudget:'any', recBusy:false, recError:'', recsMem:null, selecting:false, sel:new Set(), custom:{}, moreFilters:false };
+let vecsWarmed=false;
 function onData(){
+  if(!vecsWarmed && Store.docs.length){ vecsWarmed=true; setTimeout(()=>warmVecs().catch(()=>{}),5000); } // after the closet is on screen
   const prefs = Store.docs.find(d=>d.kind==='prefs'); S.custom = clean(prefs?.customSubs||{});
   S.dirAdd = clean(prefs?.dirAdd||{}); S.dirHide = clean(prefs?.dirHide||{}); S.sizes = clean(prefs?.sizes||{});
   if(prefs && !S._budgetLoaded){ S._budgetLoaded=true; if(prefs.budget) S.recBudget=prefs.budget; if(prefs.budgetAmt) S.budgetAmt=String(prefs.budgetAmt); }
@@ -1201,6 +1245,7 @@ function sampleBanner(){
   return S.usingSamples ? `<div class="banner"><p><strong>These are example pieces.</strong> Photograph or paste your first item and the examples clear away. Everything you add stays private to you.</p><button class="btn primary" data-act="add">${icon('camera')}Add your first piece</button></div>` : '';
 }
 function filtered(){
+  if(S.photoFind) return S.photoFind.ids.map(findItem).filter(Boolean); // a photo search shows its matches, best first
   const q=S.q.trim().toLowerCase();
   let list=S.items.filter(it=>(S.status==='wash'?it.status==='wash':S.status==='retired'?it.status==='retired':it.status!=='retired') && (S.cat==='all'||it.category===S.cat) && (S.sub==='all'||it.subcategory===S.sub) && (S.mat==='all'||it.materialType===S.mat) && (S.fam==='all'||(it.colors||[]).some(c=>c.fam===S.fam)) &&
     (!q || [it.name,it.brand,it.material,it.materialType,it.subcategory,it.style,it.size,catLabel(it.category),...(it.tags||[]),...(it.colors||[]).map(c=>c.name)].join(' ').toLowerCase().includes(q)));
@@ -1215,7 +1260,7 @@ function cardHTML(it){
     <div class="tile${S.iconView?' icon':it.keepBg?' full':''}"><img src="${esc(pieceImg(it))}"${icAttr(it)} alt="${esc(it.name||'')}" loading="lazy" decoding="async"></div>
     <div class="card-meta"><div class="card-name">${esc(it.name||'Untitled piece')}</div>
       <div class="card-sub">${esc([it.subcategory||catLabel(it.category),it.brand].filter(Boolean).join(' · '))}</div>
-      <div class="card-foot"><span class="dots">${(it.colors||[]).slice(0,4).map(c=>`<i style="background:${hexOK(c.hex)}" title="${esc(c.name)}"></i>`).join('')}</span><span class="wears">${it.wears||0}× worn</span></div></div>
+      <div class="card-foot"><span class="dots">${(it.colors||[]).slice(0,MAX_COLORS).map(c=>`<i style="background:${hexOK(c.hex)}" title="${esc(c.name)}"></i>`).join('')}</span><span class="wears">${it.wears||0}× worn</span></div></div>
     ${it.sample?'<span class="badge">Example</span>':''}</button>`;
 }
 function closetHTML(){
@@ -1226,12 +1271,13 @@ function closetHTML(){
   const activeFilters=(S.mat!=='all')+(S.fam!=='all');
   const mats={}; S.items.filter(i=>(S.cat==='all'||i.category===S.cat)&&i.materialType).forEach(i=>mats[i.materialType]=(mats[i.materialType]||0)+1);
   const list=filtered();
-  return `<div class="view-head"><div><h1>Closet</h1><p>${S.items.length} piece${S.items.length===1?'':'s'}${S.usingSamples?' (examples)':''}</p></div><div class="row" style="align-items:center"><span class="store-note">${esc(Store.note())}</span>${!S.usingSamples&&Store.downloads?'<button class="btn" data-act="backup">Download backup</button>':''}${!S.usingSamples&&!S.selecting?'<button class="btn" data-act="select-start">Select</button>':''}<div class="chips" role="group" aria-label="Show pieces as"><button class="chip" data-act="view-mode" data-v="icons" aria-pressed="${S.iconView}">Icons</button><button class="chip" data-act="view-mode" data-v="photos" aria-pressed="${!S.iconView}">Photos</button></div>${sizeSeg('gridSize')}</div></div>
+  return `<div class="view-head"><div><h1>Closet</h1><p>${S.items.length} piece${S.items.length===1?'':'s'}${S.usingSamples?' (examples)':''}</p></div><div class="row" style="align-items:center"><span class="store-note">${esc(Store.note())}</span>${!S.usingSamples&&Store.downloads?'<button class="btn" data-act="backup">Download backup</button>':''}${!S.usingSamples&&!S.selecting?'<button class="btn" data-act="link-run" title="Read every piece’s product link again, fill in missing details, and look for links for pieces without one">Update from links</button><button class="btn" data-act="select-start">Select</button>':''}<div class="chips" role="group" aria-label="Show pieces as"><button class="chip" data-act="view-mode" data-v="icons" aria-pressed="${S.iconView}">Icons</button><button class="chip" data-act="view-mode" data-v="photos" aria-pressed="${!S.iconView}">Photos</button></div>${sizeSeg('gridSize')}</div></div>
   ${S.selecting?`<div class="banner"><p><strong>${S.sel.size} selected</strong> Tap pieces to pick the ones to delete.</p><div class="row"><button class="btn ghost" data-act="select-all">Select all</button><button class="btn" data-act="select-cancel">Cancel</button><button class="btn danger" data-act="select-delete"${S.sel.size?'':' disabled'}>Delete ${S.sel.size||''}</button></div></div>`:''}
   ${sampleBanner()}
+  ${linkRunHTML()}
   <div class="filters">
     <div class="filter-row">
-      <label class="search">${icon('search')}<input id="q" type="search" placeholder="Search name, brand, color, fabric…" value="${esc(S.q)}" aria-label="Search your closet"></label>
+      <label class="search">${icon('search')}<input id="q" type="search" placeholder="Search name, brand, color, fabric…" value="${esc(S.q)}" aria-label="Search your closet"><button type="button" class="search-cam" data-act="photo-find" aria-label="Find a piece by photo" title="Find a piece by photo">${icon('camera')}</button></label>
       <select class="sel" id="sort" aria-label="Sort">
         ${[['new','Newest first'],['layer','By layer'],['recent','Recently worn'],['worn','Most worn'],['least','Least worn'],['name','Name A–Z']].map(([v,l])=>`<option value="${v}"${S.sort===v?' selected':''}>${l}</option>`).join('')}
       </select>
@@ -1255,6 +1301,7 @@ function closetHTML(){
       ${Object.keys(FAMS).filter(f=>fams[f]).map(f=>`<button class="chip" data-act="fam" data-v="${f}" aria-pressed="${S.fam===f}"><span class="swatch" style="background:${FAMS[f]}"></span>${f[0].toUpperCase()+f.slice(1)}</button>`).join('')}
     </div>`:''}
   </div>
+  ${S.photoFind?`<div class="banner"><p id="pf-note">${S.photoFind.busy?'Recognizing your photo on this device…':S.photoFind.ids.length?`<strong>${S.photoFind.sure?'Closest matches':'Nothing exact, but these look closest'}</strong> to your photo, best first.`:'Nothing in your closet looks like that photo.'}</p><button class="btn" data-act="photo-find-clear">Clear</button></div>`:''}
   <div id="closet-results">${resultsHTML(list)}</div>`;
 }
 // Grid size buttons drawn as little squares: one big square, a 3×3 and a 5×5. key is the setting they change
@@ -1283,7 +1330,7 @@ const wallOf = items => `<div class="grid wall" data-size="${S.gridSize}">${item
 // it into sections instead (hanging, shoe rack, shelves), each its own wall.
 function resultsHTML(list){
   if(!list.length) return `<div class="empty"><h3>Nothing matches</h3><p>Try a different search or clear the filters.</p><button class="btn" data-act="clear-filters">Clear filters</button></div>`;
-  if(S.sort!=='layer') return `<div class="closet"><section class="bay"><span class="bay-plate">${esc(S.sub!=='all'?S.sub:S.cat!=='all'?catLabel(S.cat):'The closet')} <span class="n">${list.length}</span></span>${wallOf(list)}</section></div>`;
+  if(S.sort!=='layer'||S.photoFind) return `<div class="closet"><section class="bay"><span class="bay-plate">${esc(S.photoFind?'Photo matches':S.sub!=='all'?S.sub:S.cat!=='all'?catLabel(S.cat):'The closet')} <span class="n">${list.length}</span></span>${wallOf(list)}</section></div>`;
   const groups=new Map(BAYS.map(([k])=>[k,[]])); for(const it of list) groups.get(bayOf(it)).push(it);
   return `<div class="closet">${BAYS.filter(([k])=>groups.get(k).length).map(([k,label])=>`<section class="bay" aria-label="${label}"><span class="bay-plate">${label} <span class="n">${groups.get(k).length}</span></span>${wallOf(groups.get(k))}</section>`).join('')}</div>`;
 }
@@ -1529,7 +1576,8 @@ function lookupGo(){
   if(Add.hint) applyDescription(Add.hint);
   Add.data.imgData=lookupImage(Add.data);
   renderDetailsStep(); if(!Add.hint&&!link) return;
-  if(AI.sample){ Add.lastFindKey=''; autoFind(); }
+  if(link) readProductLink(Add,link); // the page itself says it best; the AI only steps in if it can't be read
+  else if(AI.sample){ Add.lastFindKey=''; autoFind(); }
 }
 // Dixon Atelier's quick add: every line becomes a piece, read the same way as a description, with its type's drawn icon.
 async function pasteAdd(btn){
@@ -1606,6 +1654,49 @@ const clipRank = (e,list) => { const sc=list.map(([k,v])=>{ let s=0; for(let j=0
 async function visionIdentify(src){ if(!CLIP_LABELS) throw new Error('vision_load'); const e=await clipEmbed(src), L=clipLabels();
   const ty=clipRank(e,L.types), pa=clipRank(e,L.patterns), ma=clipRank(e,L.mats), [category,subcategory]=ty[0].k.split('|');
   return {category,subcategory,typeP:ty[0].p,types:ty.slice(0,3),pattern:pa[0].k,patternP:pa[0].p,materialType:ma[0].k,materialP:ma[0].p}; }
+/* ----- Dixon AI's visual memory: each piece's photo becomes the same 512-number description the recognizer uses, kept on
+   this device (about 700 bytes a piece), so any new photo can be matched against the whole closet with no account. ----- */
+const VEC_KEY='dixon.vec.v1', VEC_SCALE=127*4;
+const VECS=(()=>{ try{ return JSON.parse(localStorage.getItem(VEC_KEY)||'{}'); }catch{ return {}; } })();
+const packVec = v => btoa(String.fromCharCode(...new Uint8Array(Int8Array.from(v,x=>Math.max(-127,Math.min(127,Math.round(x*VEC_SCALE)))).buffer)));
+const unpackVec = s => { const b=atob(s), v=new Float32Array(b.length); for(let i=0;i<b.length;i++) v[i]=b.charCodeAt(i)<<24>>24; const n=Math.hypot(...v)||1; return v.map(x=>x/n); };
+let vecSaveT=0; const saveVecs = () => { clearTimeout(vecSaveT); vecSaveT=setTimeout(()=>{ try{ localStorage.setItem(VEC_KEY,JSON.stringify(VECS)); }catch{} },600); };
+const photoOf = it => { const s=Store.imgSrc(it); return !s || it.drawn || it.svg || /^data:image\/svg/.test(s) ? '' : s; };
+async function itemVec(it){
+  const src=photoOf(it); if(!src) return null; const sig=hash36(src.length+src.slice(0,64)+src.slice(-64)), hit=VECS[it.id];
+  if(hit?.k===sig) return unpackVec(hit.v);
+  const img=await loadImg(src).catch(()=>null); if(!img) return null;
+  const v=await clipEmbed(img); VECS[it.id]={k:sig,v:packVec(v)}; saveVecs(); return v;
+}
+const cosine = (a,b) => { let s=0; for(let i=0;i<a.length;i++) s+=a[i]*b[i]; return s; };
+// The closet's pieces ranked by how alike they look to a photo, most alike first (score: 1 is identical).
+async function closetLike(v,{pool,onProgress}={}){
+  const list=pool||S.items.filter(i=>i.status!=='retired'&&!i.sample), out=[]; let k=0;
+  for(const it of list){ const w=await itemVec(it).catch(()=>null); onProgress?.(++k,list.length); if(w) out.push({it,score:cosine(v,w)}); }
+  return out.sort((a,b)=>b.score-a.score);
+}
+// Once the recognizer is on the device, pieces are described quietly in spare moments, one at a time, so a photo search is instant.
+async function warmVecs(){
+  try{ const c=await caches.open('dixon-models'); if(!await c.match(VISION_MODELS.clip)) return; }catch{ return; }
+  for(const it of S.items){ if(!photoOf(it) || VECS[it.id]) continue;
+    await new Promise(r=>(window.requestIdleCallback||setTimeout)(r,{timeout:2000})); await itemVec(it).catch(()=>null); }
+}
+const PHOTO_MATCH=0.80, DUPE_MATCH=0.90; // tuned on the real closet: same piece in another photo scores above ~0.85
+async function photoFind(file){
+  S.photoFind={busy:true,ids:[]}; S.view='closet'; render();
+  try{ const img=await loadImg(URL.createObjectURL(file)), v=await clipEmbed(img);
+    const ranked=await closetLike(v,{onProgress:(n,of)=>{ const el=$('#pf-note'); if(el) el.textContent=`Comparing with your closet… ${n} of ${of}`; }});
+    const top=ranked[0]?.score||0;
+    S.photoFind={ ids:ranked.filter((r,i)=>i<12 && r.score>=PHOTO_MATCH-0.1 && r.score>=top-0.1).map(r=>r.it.id), top, sure:top>=PHOTO_MATCH }; }
+  catch(e){ console.warn('photo find',e); S.photoFind=null; toast('That photo couldn’t be read on this device.'); }
+  render();
+}
+// While adding a piece: is it already in the closet? Runs in the background and only speaks up when it's very alike.
+async function checkDuplicate(A){
+  try{ const v=await clipEmbed(A.cut.canvas), best=(await closetLike(v,{pool:S.items.filter(i=>i.id!==A.editingId&&i.status!=='retired'&&!i.sample)}))[0];
+    if(Add!==A || !A.idResult) return; A.idResult.dupe = best && best.score>=DUPE_MATCH ? best.it.id : ''; if(A.step==='details') renderIdCard(); }
+  catch(e){ console.warn('duplicate check',e); }
+}
 // How likely each pixel is part of the piece (0–1), at the photo's size W×H.
 async function visionMask(canvas,W,H){ const s=await visionSession('seg'), N=320, k=N/Math.max(W,H), w=Math.round(W*k), h=Math.round(H*k);
   const c=document.createElement('canvas'); c.width=c.height=N; const x=c.getContext('2d',{willReadFrequently:true}); x.fillStyle='#000'; x.fillRect(0,0,N,N); x.imageSmoothingQuality='high'; x.drawImage(canvas,0,0,w,h);
@@ -1888,6 +1979,7 @@ function renderDetailsStep(){
   ['fit','pattern','style'].forEach(k=>$('#f-'+k).addEventListener('change',()=>Add.touched[k]=true));
   $('#shoe-fields')?.addEventListener('change',e=>{ const k=e.target.id?.replace(/^f-/,''); if(SHOE_KEYS.includes(k)){ Add.touched[k]=true; Add.data[k]=e.target.value; } });
   $('#f-reference').addEventListener('input',()=>Add.touched.reference=true);
+  $('#f-productUrl')?.addEventListener('change',e=>{ const u=urlOK(e.target.value.trim()); if(u){ Add.data.productUrl=u; readProductLink(Add,u); } });
   $('#f-category').addEventListener('change',e=>{ Add.data.category=e.target.value; Add.data.subcategory=''; Add.touched.category=true; renderTypeStrip(); renderStyleSelect(); renderShoeFields(); refreshLookupImage();
     const sw=$('#f-sleeve-wrap'); if(sw) sw.hidden=!['tops','active'].includes(Add.data.category);
     if(!Add.editingId && !Add.touched.size && (Add.fromText?.size || !Add.data.size)){ const z=sizeFor(Add.data.category); Add.data.size=z; $('#f-size').value=z; } });
@@ -1949,7 +2041,7 @@ function readForm(){
 }
 function setAI(state,msg){ const el=$('#ai'); if(!el) return; el.hidden=false; el.dataset.state=state;
   el.innerHTML = (state==='busy'?`<svg class="spin"><use href="#i-loader"/></svg>`:icon('spark'))+`<span>${esc(msg)}</span>`; }
-function aiError(e,fallback){ return ({kimi_setup:'Dixon AI isn’t switched on yet: its OpenRouter key hasn’t been added to the server.',kimi_not_allowed:'The built-in AI is only for this closet’s owner account.',kimi_signin:'Sign in to your closet again to use the built-in AI.',no_key:'Sign in to your AI account in Settings to use this.',bad_key:'Your AI sign-in was rejected or expired. Sign in again in Settings.',bad_model:'That model isn’t available on your AI account. Change it in Settings.',billing:'Your AI account is out of credit. Add credit on openrouter.ai, or in your AI provider’s account.',not_granted:'Claude wasn’t allowed for this page, so fill in the details yourself.',rate_limited:'Claude is busy right now. Try again in a minute.',invalid_json:'Claude’s answer didn’t come back in a usable form. Try again.',refused:'Claude couldn’t describe this image.',image_rejected:'That image couldn’t be sent to Claude.'})[e?.code] || fallback || 'Claude couldn’t look at this piece right now. You can fill in the details yourself.'; }
+function aiError(e,fallback){ return ({local_offline:'Your computer’s AI didn’t answer. Make sure the computer is on and Ollama is running.',kimi_setup:'Dixon AI isn’t switched on yet: its OpenRouter key hasn’t been added to the server.',kimi_not_allowed:'The built-in AI is only for this closet’s owner account.',kimi_signin:'Sign in to your closet again to use the built-in AI.',no_key:'Sign in to your AI account in Settings to use this.',bad_key:'Your AI sign-in was rejected or expired. Sign in again in Settings.',bad_model:'That model isn’t available on your AI account. Change it in Settings.',billing:'Your AI account is out of credit. Add credit on openrouter.ai, or in your AI provider’s account.',not_granted:'Claude wasn’t allowed for this page, so fill in the details yourself.',rate_limited:'Claude is busy right now. Try again in a minute.',invalid_json:'Claude’s answer didn’t come back in a usable form. Try again.',refused:'Claude couldn’t describe this image.',image_rejected:'That image couldn’t be sent to Claude.'})[e?.code] || fallback || 'Claude couldn’t look at this piece right now. You can fill in the details yourself.'; }
 const FITS=['Skinny','Slim','Tapered','Regular','Straight','Relaxed','Boxy','Oversized','Wide','Baggy'];
 // Construction styles from Dixon Atelier's garment builder: necklines, closures, pockets, hems and soles, per category.
 const STYLES={
@@ -2113,7 +2205,7 @@ function applyDescription(text){
     if(k==='colors' && T.colors) continue;
     if(k!=='subcategory' && k!=='colors' && !mine(k)) continue;
     // Colors you name lead; the photo's measured colors stay behind them as accents.
-    if(k==='colors'){ const measured=(Add.cut?.colors||[]).filter(c=>!p.colors.some(x=>x.fam===c.fam)); D.colors=[...p.colors,...measured].slice(0,4); Add.fromText.colors=true; continue; }
+    if(k==='colors'){ const measured=(Add.cut?.colors||[]).filter(c=>!p.colors.some(x=>x.fam===c.fam)); D.colors=[...p.colors,...measured].slice(0,MAX_COLORS); Add.fromText.colors=true; continue; }
     D[k]=p[k]; Add.fromText[k]=true;
   }
   syncFormFromData();
@@ -2312,6 +2404,7 @@ Identify the item. Reply with only a JSON object with these keys:
     // What Claude filled is a suggestion: describing the piece afterwards can still change it.
     Add.fromText=Add.fromText||{}; for(const k of ['name','brand','category','subcategory','materialType','fit','pattern','style','material','reference']) if(JSON.stringify(D[k])!==JSON.stringify(before[k])) Add.fromText[k]=true;
     if(Add.step==='details') renderDetailsStep();
+    checkDuplicate(Add); // already own it? (on this device, in the background)
   }catch(e){ if(Add.step==='details') setAI('error',aiError(e)); }
   if(!isBasic()) autoFind(); // then go straight on to the exact product
 }
@@ -2324,6 +2417,7 @@ function renderIdCard(){
     <div class="row" style="align-items:center"><span class="pill ${R.confidence==='high'?'high':R.confidence==='medium'?'medium':'low'}">${esc(R.confidence)} confidence</span></div>
     <b style="font:800 17px/1.1 var(--f-display);text-transform:uppercase;overflow-wrap:anywhere">${esc(name)}</b>
     <span class="meta">${esc([D.subcategory||catLabel(D.category),R.fit,R.pattern&&R.pattern!=='Solid'?R.pattern:'',R.material].filter(Boolean).join(' · '))}</span>
+    ${R.dupe&&findItem(R.dupe)?`<span class="small" style="margin:0"><b>Looks like a piece you already own:</b> ${esc(findItem(R.dupe).name||'Untitled piece')}. Check it isn’t the same one before saving.</span>`:''}
     ${R.confidence==='low'&&!isBasic()?'<span class="small" style="margin:0">Not sure on this one. Add a hint above, like the brand, and tap Identify again.</span>':''}
     <div class="row">${R.reference?`<a class="btn" href="${esc('https://www.google.com/search?q='+enc(R.reference))}" target="_blank" rel="noopener noreferrer">Look up this item ↗</a>`:''}</div>
     <span class="small muted" style="margin:0">${isBasic()?(R.vision?'Recognized on this device (no AI account needed). Check the type and fabric; your own entries always win.':'Basic guess from the photo’s shape and your description (not signed in to an AI account). Describe it above for better results.'):'Filled in by Claude. Your own entries always win; check the details before saving.'}</span></div>`;
@@ -2432,10 +2526,138 @@ async function currentImageBlob(){
   const src=Store.imgSrc(Add.data); if(!src) return null;
   try{ const img=await loadImg(src); return await canvasBlob(scaledCanvas(img,1000,'#ffffff'),'image/jpeg',0.9); }catch{ return null; }
 }
+/* ---------- Link reader: a product link fills in everything its page says, with no AI. The Dixon link service reads the
+   store's own product data (schema.org, Open Graph, Shopify) and, when the page is blocked or gone, the newest Wayback
+   Machine copy. Without a sign-in, Shopify stores can still be read straight from the phone. ---------- */
+const hostOf = u => { try{ return new URL(u).hostname.replace(/^www\./,''); }catch{ return ''; } };
+const BRAND_ALIASES={ 'levi strauss & co.':"Levi's", 'levi strauss':"Levi's", 'the gap':'Gap', 'nike, inc.':'Nike' };
+async function shopifyDirect(url){
+  const u=new URL(url); if(!/\/products\/[^/]+/.test(u.pathname)) return null;
+  const r=await fetch(u.origin+u.pathname.replace(/(\/products\/[^/]+).*/,'$1')+'.js').catch(()=>null); if(!r?.ok) return null;
+  const j=await r.json().catch(()=>null); if(!j?.title) return null;
+  const opt=re=>{ const i=(j.options||[]).findIndex(o=>re.test(typeof o==='string'?o:o?.name)); return i<0?[]:[...new Set((j.variants||[]).map(v=>v.options?.[i]).filter(Boolean))]; };
+  const text=String(j.description||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+  return { ok:true, source:'shopify', url, product:{ name:j.title, brand:j.vendor||'', type:j.type||'', tags:j.tags||[], description:text.slice(0,1500), colors:opt(/colou?r/i), sizes:opt(/size|waist|length/i),
+    price:j.price?j.price/100:null, images:(j.images||[]).slice(0,6).map(s=>s.startsWith('//')?'https:'+s:s), sku:j.variants?.[0]?.sku||'', material:(text.match(/\b\d{1,3}\s?%\s?[a-z ]{3,30}/i)||[''])[0] } };
+}
+// hint {brand,name}: what the piece is, so the same product can be found on other stores or in archives if the link fails.
+async function readLink(url,hint={}){
+  if(typeof Sync!=='undefined' && Sync.client && Sync.user){
+    const {data,error}=await Sync.client.functions.invoke('dixon-link',{body:{url,brand:hint.brand||'',name:hint.name||''}});
+    if(!error && data?.ok) return data;
+  }
+  return shopifyDirect(url).catch(()=>null);
+}
+// The listing in the same shape the exact-item finder uses, so it shows and fills in the same way.
+function linkMatch(L){
+  const p=L.product||{}, S2=v=>String(v??'').trim(), host=(()=>{ try{ return new URL(L.url).hostname.replace(/^www\./,''); }catch{ return ''; } })();
+  const brand=BRAND_ALIASES[S2(p.brand).toLowerCase()]||S2(p.brand);
+  const words=[brand,p.name,p.type,p.color,p.material,p.category,(p.tags||[]).slice(0,8).join(' '),S2(p.description).slice(0,300)].filter(Boolean).join(', ');
+  const d=parseDescription(words)||{}, nameD=parseDescription([brand,p.name,p.type].filter(Boolean).join(' '))||{};
+  const cat=nameD.category||d.category||'', price=Number(p.price), usd=!p.currency||/usd/i.test(p.currency);
+  // The main material is the fiber with the biggest share ("92% cotton, 8% spandex" is cotton).
+  const fibers=[...S2(p.material).matchAll(/(\d{1,3})\s?%\s?([a-z ]+)/gi)].sort((a,b)=>b[1]-a[1]), mainFiber=fibers[0]?.[2]||'';
+  const mainMat=(mainFiber && parseDescription(mainFiber)?.materialType) || nameD.materialType || d.materialType || '';
+  const when=L.archivedAt?new Date(L.archivedAt.replace(/^(\d{4})(\d\d)(\d\d).*/,'$1-$2-$3')).toLocaleDateString(undefined,{month:'short',year:'numeric'}):'';
+  return { brand:brand.slice(0,60), productName:S2(p.name).replace(new RegExp('^'+reEsc(brand)+'\\s+','i'),'').slice(0,120), line:'', styleNumber:S2(p.styleNumber||p.mpn).slice(0,40), colorway:S2(p.color||(p.colors?.length===1?p.colors[0]:'')).slice(0,60),
+    category:cat, subcategory:nameD.subcategory||d.subcategory||'', materialType:MATERIALS.includes(mainMat)?mainMat:'', material:S2(p.material).slice(0,120), fit:d.fit||'', pattern:d.pattern||'', style:d.style||'', care:S2(p.care).slice(0,160),
+    ...Object.fromEntries(SHOE_FIELDS.map(([k])=>[k,d[k]||''])), seasons:[], retailPrice:usd&&price>0?Math.round(price):null,
+    productUrl:urlOK(L.url), imageUrl:(p.images||[]).find(s=>/^https:\/\//.test(s))||'', details:[p.weight,p.sizes?.length?'Sizes: '+p.sizes.slice(0,10).join(', '):''].filter(Boolean).join('. ').slice(0,200),
+    fitNotes:S2(p.fit), tags:(p.tags||[]).map(t=>S2(t).toLowerCase()).filter(t=>t.length<=24&&!/[:_]/.test(t)).slice(0,6), rn:'', madeIn:S2(p.madeIn).slice(0,40), resalePrice:null, resaleUrl:'',
+    confirmedBy:[L.source==='archive'?`Wayback Machine copy (${when})`:L.source==='elsewhere'||L.source==='database'?hostOf(L.foundAt):host].filter(Boolean),
+    confidence:!p.name?'low':L.source==='elsewhere'||L.source==='database'?'medium':'high', foundAt:L.source==='elsewhere'?urlOK(L.foundAt||''):'',
+    reasoning:L.source==='archive'?`Read from an archived copy of the listing (${when}), because the live page is gone or blocked.`
+      :L.source==='elsewhere'?`The link couldn’t be read, so the same product was found at ${hostOf(L.foundAt)}. Check it’s the same piece.`
+      :L.source==='database'?`The link couldn’t be read, so this came from a product database. Check it’s the same piece.`:'Read straight from the store’s own listing.',
+    checks:[], queries:[[brand,p.name].filter(Boolean).join(' ')].filter(Boolean), brandDomain:domainOK(host), archiveUrl:urlOK(L.archiveUrl||'') };
+}
+async function readProductLink(A,url){
+  if(!url || A.linkRead===url) return; A.linkRead=url; A.finding=true; A.findMsg=''; A.findError=''; A.findMsg='Reading the product page…'; renderFinder();
+  let L=null; try{ L=await readLink(url,{brand:A.data.brand,name:A.data.name}); }catch(e){ console.warn('link reader',e); }
+  A.finding=false; A.findMsg='';
+  if(L?.ok && L.product?.name){ A.match=linkMatch(L); A.fromLink=true; A.matchFilled=applyMatch(A,false);
+    if(A.match.retailPrice && (A.data.price==null||A.data.price==='') && !A.touched.price){ A.data.price=A.match.retailPrice; A.matchFilled++; }
+    if(A.match.imageUrl) useStoreImage(A,A.match.imageUrl); if(Add===A && A.step==='details') syncFormFromData(); }
+  else A.findError='That page couldn’t be read (the store blocks readers and there’s no archived copy). The details from the link’s words are filled in.';
+  if(Add===A && A.step==='details') renderFinder();
+  if(!A.match && AI.sample){ A.lastFindKey=''; autoFind(); } // nothing read: let the AI search instead
+}
+/* ---------- Update from links, for the whole closet: every piece with a product link is read again and its empty
+   details filled in (and its fabric corrected from the listing's own fiber content); pieces without a link get one looked
+   up on the brand's and other stores' sites. Vintage, thrifted and one-off pieces are skipped. Nothing is saved until you
+   apply it, and the old values are kept so it can be undone. ---------- */
+const isVintage = it => /\b(vintage|thrift(ed)?|second.?hand|pre.?owned|deadstock|one.?of.?a.?kind|handmade|custom made|90s|80s|70s)\b/i.test([it.name,it.notes,it.desc,it.reference,...(it.tags||[])].filter(Boolean).join(' '));
+const emptyVal = v => v==null || v==='' || (Array.isArray(v)&&!v.length);
+// What the listing would change on a piece: {field:[before, after]}. Empty fields are filled; the fabric is corrected
+// when the listing gives the exact fiber content; your own name, size and colors are never touched.
+// Fibers, as opposed to fabrics like fleece, denim or rib knit (a cotton fleece hoodie stays "Fleece"; its fibers go in Fabric).
+const FIBER_MATS=['Cotton','Organic cotton','Wool','Cashmere','Linen','Polyester','Recycled polyester','Nylon','Acrylic','Silk','Viscose','Rayon','Spandex / elastane','Hemp','Alpaca','Mohair'];
+const nameWords = s => new Set(String(s||'').toLowerCase().normalize('NFKD').replace(/[^a-z0-9 ]+/g,' ').split(' ').filter(w=>w.length>2&&!['the','and','with','mens','men'].includes(w)));
+// Found on another store or in a database: only trusted when most of the piece's own name is in the found product's name.
+const sameProduct = (it,p) => { const a=nameWords(it.name), b=nameWords([p.name,p.brand].join(' ')); if(!a.size) return false; let h=0; for(const w of a) if(b.has(w)) h++; return h/a.size>=0.6; };
+function linkChanges(it,L){
+  const M=linkMatch(L), ch={}, own=['live','shopify','archive'].includes(L.source);
+  if(!own && !sameProduct(it,L.product||{})) return ch;
+  const exactFabric=own && M.confidence==='high' && /\d\s?%/.test(M.material);
+  const set=(k,v,fix=false)=>{ if(emptyVal(v) || JSON.stringify(it[k])===JSON.stringify(v)) return; if(!emptyVal(it[k]) && !fix) return; ch[k]=[it[k]??'',v]; };
+  set('brand',M.brand); set('styleNumber',M.styleNumber);
+  if(!['accessories','shoes'].includes(it.category) && /wash|dry clean|tumble/i.test(M.care)) set('care',M.care);
+  set('material',M.material,exactFabric);
+  if(exactFabric && (emptyVal(it.materialType) || FIBER_MATS.includes(it.materialType))) set('materialType',M.materialType,true);
+  if(own && M.confidence==='high' && !it.subcategory && M.category===it.category) set('subcategory',M.subcategory);
+  set('fit',M.fit); set('pattern',M.pattern);
+  if(M.retailPrice && emptyVal(it.price)) set('price',M.retailPrice);
+  set('productImg',M.imageUrl); // the store photo: icons copy its real colors and graphics
+  if(!it.productUrl && M.foundAt && M.confidence!=='low') set('productUrl',M.foundAt);
+  const note=[M.madeIn&&('Made in '+M.madeIn), M.fitNotes&&('Fit: '+M.fitNotes)].filter(Boolean).join('. '); if(note && !it.notes) set('notes',note);
+  return ch;
+}
+async function linkRun(){
+  if(S.linkRun?.busy) return;
+  const list=S.items.filter(i=>!i.sample && i.status!=='retired'), R=S.linkRun={busy:true,n:0,of:list.length,results:[]}; render();
+  const one=async it=>{ let r={id:it.id,name:it.name||'Untitled piece',changes:{}};
+    if(urlOK(it.productUrl)){ const L=await readLink(it.productUrl,{brand:it.brand,name:it.name}).catch(()=>null);
+      r={...r, status:L?.ok?L.source:'unread', changes:L?.ok?linkChanges(it,L):{}}; }
+    else if(isVintage(it)) r={...r,status:'vintage'};
+    else if(it.brand && it.name && typeof Sync!=='undefined' && Sync.client && Sync.user){
+      const {data}=await Sync.client.functions.invoke('dixon-link',{body:{brand:it.brand,name:it.name}}).catch(()=>({data:null}));
+      r={...r, status:data?.ok?'found':'no link', changes:data?.ok?linkChanges(it,{...data,url:data.foundAt}):{}}; }
+    else r={...r,status:'no link'};
+    const cc=await colorChanges(it).catch(()=>null); if(cc) r={...r,changes:{...r.changes,colors:[it.colors||[],cc]}}; // multi-colored pieces: up to 3 colors
+    R.results.push(r); R.n++; const el=$('#lr-note'); if(el) el.textContent=`Checking your pieces… ${R.n} of ${R.of}`; };
+  for(let i=0;i<list.length;i+=4) await Promise.all(list.slice(i,i+4).map(it=>one(it).catch(e=>{ console.warn('update from links',it.id,e); R.results.push({id:it.id,name:it.name||'Untitled piece',status:'unread',changes:{}}); R.n++; })));
+  R.busy=false; if(S.linkRun===R) render();
+}
+async function linkApply(){
+  const R=S.linkRun; if(!R||R.busy) return; const todo=R.results.filter(r=>Object.keys(r.changes).length);
+  const undo=todo.map(r=>({id:r.id,before:Object.fromEntries(Object.entries(r.changes).map(([k,[b]])=>[k,b]))}));
+  try{ localStorage.setItem('dixon.linkUndo',JSON.stringify(undo)); }catch{}
+  let n=0; for(const r of todo){ const doc=Store.get(r.id); if(!doc) continue; const {id:_id,...rest}=doc;
+    await Store.put(r.id,{...rest,...Object.fromEntries(Object.entries(r.changes).map(([k,[,a]])=>[k,a]))}).then(()=>n++).catch(e=>console.warn('link update',e)); }
+  S.linkRun={...R,applied:n}; toast(`Updated ${n} piece${n===1?'':'s'} from their listings`); render();
+}
+async function linkUndo(){
+  let undo=[]; try{ undo=JSON.parse(localStorage.getItem('dixon.linkUndo')||'[]'); }catch{}
+  for(const u of undo){ const doc=Store.get(u.id); if(!doc) continue; const {id:_id,...rest}=doc; await Store.put(u.id,{...rest,...u.before}).catch(()=>{}); }
+  try{ localStorage.removeItem('dixon.linkUndo'); }catch{} S.linkRun=null; toast('Put the pieces back the way they were'); render();
+}
+const LR_LABEL={live:'Read from its listing',shopify:'Read from its listing',archive:'Read from an archived copy',elsewhere:'Found at another store',database:'Found in a product database',found:'Link found',unread:'Link couldn’t be read','no link':'No link found',vintage:'Vintage, skipped'};
+const FIELD_LABEL={brand:'Brand',styleNumber:'Style number',care:'Care',material:'Fabric',materialType:'Main material',subcategory:'Type',fit:'Fit',pattern:'Pattern',price:'Price',productImg:'Store photo',productUrl:'Product link',notes:'Notes',colors:'Colors'};
+function linkRunHTML(){
+  const R=S.linkRun; if(!R) return '';
+  if(R.busy) return `<div class="banner"><p id="lr-note">Checking your pieces… ${R.n} of ${R.of}</p></div>`;
+  const withCh=R.results.filter(r=>Object.keys(r.changes).length), count=k=>R.results.filter(r=>r.status===k).length;
+  const show=v=>{ const t=Array.isArray(v)?v.map(c=>c.name||c).join(', ')||'none':String(v); return esc(t.length>60?t.slice(0,57)+'…':t); };
+  return `<div class="banner lr"><div style="display:grid;gap:8px;min-width:0;flex:1">
+    <p><strong>${R.applied!=null?`Updated ${R.applied} piece${R.applied===1?'':'s'}.`:withCh.length?`${withCh.length} piece${withCh.length===1?'':'s'} can be filled in or fixed.`:'Nothing to change.'}</strong>
+      ${[['live','read'],['archive','from archives'],['elsewhere','found at other stores'],['found','new links'],['unread','couldn’t be read'],['vintage','vintage']].map(([k,l])=>{ const n=k==='live'?count('live')+count('shopify'):count(k); return n?`${n} ${l}`:''; }).filter(Boolean).join(' · ')}</p>
+    ${R.applied==null&&withCh.length?`<details><summary>See the changes</summary><ul class="checks">${withCh.map(r=>`<li><b>${esc(r.name)}</b> <span class="muted">(${esc(LR_LABEL[r.status]||r.status)})</span>: ${Object.entries(r.changes).map(([k,[b,a]])=>`${FIELD_LABEL[k]||k} ${k==='productImg'?'added':emptyVal(b)?`→ ${show(a)}`:`${show(b)} → ${show(a)}`}`).join('; ')}</li>`).join('')}</ul></details>`:''}
+  </div><div class="row">${R.applied==null&&withCh.length?'<button class="btn primary" data-act="link-apply">Apply</button>':''}${R.applied!=null?'<button class="btn" data-act="link-undo">Undo</button>':''}<button class="btn ghost" data-act="link-close">Close</button></div></div>`;
+}
 function renderFinder(){
   const el=$('#finder'); if(!el||!Add) return; const canAI=!!AI.sample, M=Add.match;
   let out='';
-  if(Add.finding) out=`<div class="ai" data-state="busy"><svg class="spin"><use href="#i-loader"/></svg><span>${AI.webFetch?'Searching shops for the exact product…':'Claude is narrowing down the exact product…'}</span></div>`;
+  if(Add.finding) out=`<div class="ai" data-state="busy"><svg class="spin"><use href="#i-loader"/></svg><span>${Add.findMsg||(AI.webFetch?'Searching shops for the exact product…':'Claude is narrowing down the exact product…')}</span></div>`;
   else if(Add.findError) out=`<div class="ai" data-state="error">${icon('spark')}<span>${esc(Add.findError)}</span></div>`;
   if(M && !Add.finding){ const qs=M.queries;
     out+=`<div class="match">
@@ -2444,7 +2666,7 @@ function renderFinder(){
       ${M.line||M.styleNumber||M.colorway?`<div class="meta">${esc([M.line,M.styleNumber&&('Style '+M.styleNumber),M.colorway].filter(Boolean).join(' · '))}</div>`:''}
       ${M.material||M.retailPrice||M.resalePrice?`<div class="meta">${esc([M.material,M.retailPrice&&('Retail about $'+M.retailPrice),M.resalePrice&&('Resells around $'+M.resalePrice)].filter(Boolean).join(' · '))}</div>`:''}
       ${M.confirmedBy?.length?`<div class="small muted" style="margin:0">Confirmed with ${esc(M.confirmedBy.join(', '))}</div>`:''}
-      ${M.productUrl||M.resaleUrl?`<div class="row">${M.productUrl?`<a class="btn" href="${esc(M.productUrl)}" target="_blank" rel="noopener noreferrer">Open the listing ↗</a>`:''}${M.resaleUrl?`<a class="btn ghost" href="${esc(M.resaleUrl)}" target="_blank" rel="noopener noreferrer">See it resold ↗</a>`:''}</div>`:''}
+      ${M.productUrl||M.resaleUrl?`<div class="row">${M.productUrl?`<a class="btn" href="${esc(M.productUrl)}" target="_blank" rel="noopener noreferrer">Open the listing ↗</a>`:''}${M.resaleUrl?`<a class="btn ghost" href="${esc(M.resaleUrl)}" target="_blank" rel="noopener noreferrer">See it resold ↗</a>`:''}${M.archiveUrl?`<a class="btn ghost" href="${esc(M.archiveUrl)}" target="_blank" rel="noopener noreferrer">Archived page ↗</a>`:''}${M.foundAt?`<a class="btn ghost" href="${esc(M.foundAt)}" target="_blank" rel="noopener noreferrer">Found at ${esc(hostOf(M.foundAt))} ↗</a>`:''}</div>`:''}
       ${storeImgHTML()}
       ${M.reasoning?`<p class="small" style="margin:0">${esc(M.reasoning)}</p>`:''}
       ${M.checks.length?`<div><span class="small" style="font-weight:600">Compare against the listing:</span><ul class="checks">${M.checks.map(c=>`<li>${esc(c)}</li>`).join('')}</ul></div>`:''}
@@ -3726,7 +3948,7 @@ const ACT = {
   view:t=>{ S.view=t.dataset.view; render(); window.scrollTo(0,0); },
   add:()=>startAdd(),
   close:()=>closeSheet(),
-  cat:t=>{ S.cat=t.dataset.v; S.sub='all'; S.status=''; render(); },
+  cat:t=>{ S.cat=t.dataset.v; S.sub='all'; S.status=''; S.photoFind=null; render(); },
   'status-view':t=>{ S.status=S.status===t.dataset.v?'':t.dataset.v; render(); },
   sub:t=>{ S.sub=t.dataset.v; render(); },
   'grid-size':t=>{ const k=t.dataset.for==='outfitGrid'?'outfitGrid':'gridSize'; S[k]=GRID_SIZES.includes(t.dataset.v)?t.dataset.v:'3'; try{ localStorage.setItem(k==='outfitGrid'?'dc-ogrid':'dc-grid',S[k]); }catch{} render(); },
@@ -3801,6 +4023,9 @@ const ACT = {
   'outfit-with':t=>{ const id=t.dataset.id; closeSheet(); openBuilder({ids:[id]}); },
   'pick-photo':()=>{ const f=$('#photo-file'); f.value=''; f.click(); },
   'replace-photo':()=>{ readForm(); const f=$('#photo-file'); f.value=''; f.click(); },
+  'link-run':()=>linkRun(), 'link-apply':()=>linkApply(), 'link-undo':()=>linkUndo(), 'link-close':()=>{ S.linkRun=null; render(); },
+  'photo-find':()=>{ const f=$('#find-file'); f.value=''; f.click(); },
+  'photo-find-clear':()=>{ S.photoFind=null; render(); },
   'scan-label':()=>{ const f=$('#label-file'); f.value=''; f.click(); },
   'ai-identify':()=>aiIdentify(),
   backup:t=>exportBackup(t),
@@ -3915,7 +4140,7 @@ document.addEventListener('wheel',e=>{ const c=e.target.closest?.('.chips'); if(
 
 document.addEventListener('submit',e=>{ if(e.target.dataset.form!=='wx-place') return; e.preventDefault(); const q=$('#wx-q')?.value.trim(); if(q) findPlace(q); });
 document.addEventListener('input',e=>{ const id=e.target.id;
-  if(id==='q'){ S.q=e.target.value; searchResults(); }
+  if(id==='q'){ S.q=e.target.value; if(S.photoFind){ S.photoFind=null; return render(); } searchResults(); }
   else if(id.startsWith('p-')) P[id.slice(2)]=e.target.value;
   else if(id.startsWith('f2-')) F[id.slice(3)]=e.target.value;
   else if(id==='rec-budget-amt'){ S.budgetAmt=e.target.value; queueBudgetSave(); } });
@@ -3931,6 +4156,7 @@ $('#photo-file').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f
   if(!Add){ startAdd(f); return; }
   if(Add.editingId) Add.identified=true; // replacing a photo on an existing piece keeps your details
   loadPhoto(f); });
+$('#find-file').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) photoFind(f); });
 $('#label-file').addEventListener('change',e=>{ const f=e.target.files[0]; if(f && Add) (AI.sample&&AI.images?aiLabel(f):ocrLabel(f)); });
 ['shop-file','shop-camera-file'].forEach(id=>$('#'+id).addEventListener('change',e=>{ const f=e.target.files[0]; if(f) shopSetFile(f); }));
 document.addEventListener('paste',e=>{

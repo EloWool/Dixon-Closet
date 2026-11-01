@@ -111,7 +111,7 @@ async function drawSettings(){
       <div class="form" style="margin-top:10px">
         <label class="field"><span>AI service</span><select id="set-provider">${Object.entries(PROVIDERS).map(([k,p])=>`<option value="${k}"${keyProvider()===k?' selected':''}>${p.label}</option>`).join('')}</select></label>
         <label class="field"><span>Model</span><input id="set-key-model" autocomplete="off" spellcheck="false" placeholder="${esc(PROVIDERS[keyProvider()].model)}" value="${esc(setDraft.model??(AI.provider===keyProvider()?AI.model:''))}"></label>
-        <label class="field full"><span>API key</span><input id="set-key" type="password" autocomplete="off" spellcheck="false" placeholder="${esc(PROVIDERS[keyProvider()].hint)}" value="${AI.key&&AI.provider===keyProvider()&&!setDraft.provider?'••••••••••••':''}"></label>
+        <label class="field full"><span>${PROVIDERS[keyProvider()].local?'Computer address (Ollama)':'API key'}</span><input id="set-key" type="${PROVIDERS[keyProvider()].local?'url':'password'}" autocomplete="off" spellcheck="false" placeholder="${esc(PROVIDERS[keyProvider()].hint)}" value="${AI.key&&AI.provider===keyProvider()&&!setDraft.provider?'••••••••••••':''}"></label>
       </div>
       <p class="small muted">Get a key at ${esc(PROVIDERS[keyProvider()].site)}. The key stays on this device and requests go straight to that company.</p>
       <div class="row" style="margin-top:10px"><button class="btn" data-act="save-key">Save key</button>${AI.key&&AI.provider!=='openrouter'?'<button class="btn ghost danger" data-act="remove-key">Remove key</button>':''}</div>
