@@ -3158,10 +3158,14 @@ function layerOf(i){
   return null;
 }
 const typeName = i => (i.subcategory||catLabel(i.category)).replace(/s$/,'').replace(/^T-shirt$/,'T-shirt').toLowerCase();
+// A hoodie goes over a tee, never a long sleeve; either one still goes under a jacket.
+const isHoodie = i => ['Hoodies','Zip hoodies'].includes(i.subcategory) || (layerOf(i)===2 && /\bhood(ie|ed)?\b/i.test(i.name||''));
+const isLongSleeve = i => layerOf(i)!=null && layerOf(i)<2 && (['Long sleeves','Thermals','Thermal'].includes(i.subcategory) || sleeveOf(i)==='long');
 // Can the new piece a be worn with owned piece b? Returns null, or {layer:'under'|'over'|null, why}.
 function pairOK(a,b){
   if(!a||!b||a.id===b.id) return null;
   if(a.subcategory && b.subcategory && a.subcategory===b.subcategory) return null; // a T-shirt with a T-shirt, a sweater with a sweater
+  if((isHoodie(a) && isLongSleeve(b)) || (isHoodie(b) && isLongSleeve(a))) return null;
   const la=layerOf(a), lb=layerOf(b);
   if(la!=null && lb!=null){
     if(la===lb) return null; // two pieces in the same layer compete for the same spot
@@ -3517,7 +3521,7 @@ function openBuilder({ids=[],name='',editingId=null}={}){
 }
 // A shuffled look is built like getting dressed: maybe a base layer, one shirt or tee, maybe a mid layer, maybe a jacket,
 // one bottom, one pair of shoes, maybe an accessory. Every piece must pair with every other (no two long sleeves, no two
-// pieces from the same layer, no two pants); colors that work together are favored.
+// pieces from the same layer, no two pants, no hoodie over a long sleeve); colors that work together are favored.
 // A plan (from the weather) can leave out pieces, favor others and change how likely each layer is; a slot that must be
 // filled (top, bottoms, shoes) falls back to anything that pairs when the plan leaves nothing.
 function shuffleIds(pool,plan){
